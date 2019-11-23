@@ -12,8 +12,7 @@ def main_loop():
     main_window = pygame.display.set_mode(SCREEN_SIZE)
     
     grid = Grid(CELL_SIZE, 'conway')
-    capture = Capture(grid)
-    control = Control(capture)
+    control = Control(grid)
     
     grid.random_seed()
     

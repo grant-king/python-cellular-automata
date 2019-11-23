@@ -16,8 +16,8 @@ logging.basicConfig(
     )
 
 class Control:
-    def __init__(self, capture):
-        self.capture = capture
+    def __init__(self, grid):
+        self.capture = Capture(grid)
         self.step_clock = StepClock()
         self.STATESHOTEVENT = USEREVENT + 1
 
