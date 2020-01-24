@@ -7,6 +7,7 @@ import cv2
 #from pygame.locals import *
 from pygame.locals import USEREVENT, KEYDOWN, QUIT, K_ESCAPE, K_l, K_i, K_r, K_s, K_t
 from time import time, ctime
+from models.performance_monitor import PerformanceMonitor
 
 logging.basicConfig(
     filename = 'simulation.log', 
@@ -19,7 +20,9 @@ class Control:
     def __init__(self, grid):
         self.capture = Capture(grid)
         self.step_clock = StepClock()
+        self.perf_monitor = PerformanceMonitor(grid)
         self.STATESHOTEVENT = USEREVENT + 1
+        self.PERFSTATSEVENT = USEREVENT + 2
 
     def catch_events(self, events):
         self.events = events
@@ -57,6 +60,8 @@ class Control:
                     self.set_timer_handler()
             if event.type == self.STATESHOTEVENT:
                 self.state_shot_handler()
+            if event.type == self.PERFSTATSEVENT:
+                self.performance_event_handler()
 
     def set_timer_handler(self):
         stateshot = input('type 1 to set stateshot timer or 0 to set end timer: ')
@@ -89,6 +94,9 @@ class Control:
     def change_ruleset_handler(self):
         new_ruleset = input("type new ruleset name: ")
         self.capture.grid.set_rules(new_ruleset)
+
+    def performance_event_handler(self):
+        self.perf_monitor.update()
 
 
 class StepClock:
@@ -242,9 +250,6 @@ class Cell:
 
     def update(self):
         self.cell_visual.update()
-
-    def set_neighbors(self, neighborhood):
-        self.cell_logic.set_neighbors(neighborhood)
 
     def set_color(self, new_color):
         self.cell_visual.set_color(new_color)
