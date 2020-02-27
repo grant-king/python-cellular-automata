@@ -1,15 +1,24 @@
 import time
+import logging
 
 class PerformanceMonitor:
-    def __init__(self, pixel_count):
+    def __init__(self, grid):
         self.timer = Timer()
+        self.grid = grid
         self.total_frames = 0
-        self.total_pixels = pixel_count
+        self.total_cells = grid.total_cells
+
+    @property
+    def tick_total(self):
+        return self.grid.rule_set.run_ticks
 
     def current_fps(self):
         pass
 
     def average_fps(self):
+        pass
+
+    def rolling_average_fps(self):
         pass
 
     def fppps(self):
@@ -20,9 +29,9 @@ class PerformanceMonitor:
         #total pixels per frame per second, lower is better
         pass
 
-    def add_frames(self, add_num):
-        #add add_num to total_frmaes
-        self.total_frames += add_num
+    def update(self):
+        #make a log entry summarizing performance since last log
+        print(f'Simulation running at{self.tick_total // self.timer.elapsed()} frames per second on average.')
         
 
 class Timer:
