@@ -168,7 +168,10 @@ class Grid:
 
     def update(self):
         self.update_current_states()
+        self.update_grid()
+        self.rule_set.add_tick()
 
+    def update_grid(self):
         for col_idx, cell_col in enumerate(self.cells):
             for row_idx, cell in enumerate(cell_col):
                 # todo if first or last, wrap from edge
@@ -180,8 +183,6 @@ class Grid:
                 cell.cell_visual.update(self.aging)
                 self.rule_set.apply_rules(cell)
                 self.current_states_updates[row_idx, col_idx] = cell.cell_logic.alive
-        
-        self.rule_set.add_tick()
 
     def get_neighborhood(self, row_idx, col_idx):
         #copy neighborhood surrounding cell location
