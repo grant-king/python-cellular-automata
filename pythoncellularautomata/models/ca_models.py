@@ -7,6 +7,7 @@ import logging
 from time import time, ctime
 from models.performance_monitor import PerformanceMonitor
 from models.ca_models2 import Control, StepClock, StepTimer, Capture
+from models.image_models import ShotTool
 
 class Grid:
     def __init__(self, cell_size, rule_name, aging=False):
@@ -21,7 +22,9 @@ class Grid:
         self.num_rows = self.SCREEN_SIZE[1] // self.CELL_SIZE
         self.current_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
         self.current_states_updates = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
+        self.color_channels = np.zeros((3, self.num_rows, self.num_columns)) #store current color info
         self.rule_set = Ruleset(rule_name)
+        self.st = ShotTool()
         self.build_cells()
 
         logging.info(f'Grid initialized with {self.rule_set.name} rule at {ctime()} with {self.total_cells} cells')
@@ -58,26 +61,24 @@ class Grid:
                 if row_idx == 0 or row_idx == self.num_rows or col_idx == 0 or col_idx == self.num_columns:
                     pass    
                 else:
-                    neighborhood = self.get_neighborhood(row_idx, col_idx)
-                    cell.cell_logic.update(neighborhood)
-                cell.cell_visual.update(self.aging)
-                self.rule_set.apply_rules(cell)
-                self.current_states_updates[row_idx, col_idx] = cell.cell_logic.alive
+                    neighborhood = self.get_neighborhood(row_idx, col_idx) #slice neighborhood, not including self
+                    cell.cell_logic.update(neighborhood) #get, set neighboorhood sum for cell
+                cell.cell_visual.update(self.aging) #alter colors of cell according to aging method, update cell visual to pygame frame buffer
+                self.rule_set.apply_rules(cell) #toggle cell according to rules, to be applied on next run though
+                self.current_states_updates[row_idx, col_idx] = cell.cell_logic.alive #update cell state in updates array to be copied to working array on the next run
 
     def update_grid_II(self):
-        self.current_states_updates = self.calculate_next_sequential(self.current_states, self.current_states_updates)
+        """update grid with Shot array methods
+        """
+        self.current_states_updates = self.st.calculate_next_sequential(self.current_states, self.current_states_updates)
+        self.age_colors()
 
-        for col_idx, cell_col in enumerate(self.cells):
-            for row_idx, cell in enumerate(cell_col):
-                # todo if first or last, wrap from edge
-                if row_idx == 0 or row_idx == self.num_rows or col_idx == 0 or col_idx == self.num_columns:
-                    pass    
-                else:
-                    neighborhood = self.get_neighborhood(row_idx, col_idx)
-                    cell.cell_logic.update(neighborhood)
-                cell.cell_visual.update(self.aging)
-                self.rule_set.apply_rules(cell)
-                self.current_states_updates[row_idx, col_idx] = cell.cell_logic.alive
+        
+    def age_colors(self):
+        """get new colors by running each channel through age_channel_[...] ShotTool method
+        """
+        for channel in self.color_channels:
+            channel = self.st.age_channel_sequential(channel, self.current_states) #operate on, return altered channel
 
     def refresh_cells(self, state_image):
         """
@@ -153,9 +154,6 @@ class Cell:
     def neighborhood_sum(self):
         return self.cell_logic.neighborhood_sum
 
-    def update(self):
-        self.cell_visual.update()
-
     def set_color(self, new_color):
         self.cell_visual.set_color(new_color)
 
@@ -204,6 +202,8 @@ class CellVisual:
         return self.history.sum() / len(self.history)
 
     def update(self, aging):
+        """change colors if aging. Render final cell, draw to frame buffer.
+        """
         if aging:
             self.age_color()
         self.update_visual()
@@ -300,6 +300,8 @@ class Ruleset:
         self.run_ticks = 0
     
     def apply_rules(self, cell):
+        """toggle cell state depending on current living state and rule set setting
+        """
         if cell.cell_logic.alive:
             if cell.neighborhood_sum not in self.rule_survive:
                 cell.toggle_cell(False) #kill cell
