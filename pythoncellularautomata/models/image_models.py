@@ -4,7 +4,7 @@ class ShotTool:
     def __init__(self):
         """methods for operating on state shots, represented as 
         2d grids of binary or 8-bit values"""
-        self.ruleset = Ruleset('conway')
+        self.ruleset = Ruleset('maze')
         self.shot_history = [] #last 20 images processed
 
     def age_channel_sequential(self, input_channel, states):
@@ -32,11 +32,12 @@ class ShotTool:
         shape = state_shot.shape
         for col_idx in range(1, shape[1] - 1):
             for row_idx in range(1, shape[0] - 1): #clip edges
-                rows = (row_idx - 1, row_idx + 1)
-                cols = (col_idx - 1, col_idx + 1)
-                neighborhood = state_shot[rows[0]:rows[1], cols[0]:cols[1]]
+                rows = (row_idx - 1, row_idx + 2)
+                cols = (col_idx - 1, col_idx + 2)
+                neighborhood = state_shot[rows[0]:rows[1], cols[0]:cols[1]].copy()
+                neighborhood[1, 1] = 0 #don't count center
                 state = state_shot[row_idx, col_idx]
-                new_state = self.ruleset.apply_rules(state, neighborhood)
+                new_state = self.ruleset.apply_rules(state, neighborhood.sum())
                 next_state_shot[row_idx, col_idx] = new_state
         
         return next_state_shot
@@ -89,16 +90,15 @@ class Ruleset:
         self.rule_born = np.array(self.rule_set['born'], np.int8)
         self.run_ticks = 0
 
-    def apply_rules(self, state, neighborhood):
+    def apply_rules(self, state, neighborhood_sum):
         """use current state and cell neighborhood sum to determine next state"""
-        new_state = False
         if state:#if current state is on
-            if neighborhood not in self.rule_survive:
-                return False #kill cell
-            else:#neighborhood says survive
-                return True #cell stays on
+            if neighborhood_sum in self.rule_survive:
+                return True #cell survives
+            else:#sum not found in survival rules
+                return False #cell dies
         else:#if current state is off
-            if neighborhood in self.rule_born:
+            if neighborhood_sum in self.rule_born:
                 return True #activate cell
             else: #neighborhood says no birth
                 return False #cell remains off
@@ -113,4 +113,3 @@ class Ruleset:
 
     def __str__(self):
         return f'{self.name}'
-
