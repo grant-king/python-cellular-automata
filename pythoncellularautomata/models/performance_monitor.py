@@ -14,9 +14,10 @@ class PerformanceMonitor:
 
     def current_fps(self):
         pass
-
+    
+    @property
     def average_fps(self):
-        pass
+        return self.tick_total // self.timer.elapsed()
 
     def rolling_average_fps(self):
         pass
@@ -31,7 +32,7 @@ class PerformanceMonitor:
 
     def update(self):
         #make a log entry summarizing performance since last log
-        print(f'Simulation running at{self.tick_total // self.timer.elapsed()} frames per second on average.')
+        print(f'Simulation running at {self.average_fps} frames per second on average.')
         
 
 class Timer:
