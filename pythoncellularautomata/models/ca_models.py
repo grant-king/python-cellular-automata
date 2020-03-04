@@ -50,8 +50,9 @@ class Grid:
         self.manual_update_states()
 
     def update(self):
+        #self.update_grid()
+        self.update_grid_II()
         self.update_current_states()
-        self.update_grid()
         self.rule_set.add_tick()
 
     def update_grid(self):
@@ -70,10 +71,20 @@ class Grid:
     def update_grid_II(self):
         """update grid with Shot array methods
         """
-        self.current_states_updates = self.st.calculate_next_sequential(self.current_states, self.current_states_updates)
-        self.age_colors()
+        self.current_states_updates = self.st.calculate_next_sequential(self.current_states)
+        #self.age_colors()
+        self.update_window()
 
-        
+    def update_window(self):
+        #create image surface from current states, update to main window
+        state_image = np.ones_like(self.current_states, dtype=np.int8) * self.current_states * 255
+        new_size = tuple(np.array(state_image.shape) * 5)
+        state_image = np.transpose(state_image)
+        image_surface = pygame.pixelcopy.make_surface(cv2.resize(state_image, new_size, interpolation=cv2.INTER_NEAREST))
+        #image_surface = pygame.pixelcopy.make_surface(state_image)
+        main_window = pygame.display.get_surface()
+        main_window.blit(image_surface, main_window.get_rect())
+    
     def age_colors(self):
         """get new colors by running each channel through age_channel_[...] ShotTool method
         """
@@ -105,7 +116,8 @@ class Grid:
         #capture 2d bool array of current states
         for column in range(self.num_columns):
             for row in range(self.num_rows):
-                self.current_states_updates[row, column] = self.cells[column][row].cell_logic.alive
+                #self.current_states_updates[row, column] = self.cells[column][row].cell_logic.alive
+                self.current_states[row, column] = self.cells[column][row].cell_logic.alive
 
     def set_rules(self, name):
         logging.info(f'Ending ruleset: {self.rule_set} after {self.rule_set.run_ticks} ticks')
