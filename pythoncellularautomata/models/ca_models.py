@@ -20,9 +20,10 @@ class Grid:
         self.cells_history = [] #list of sum of bools state history
         self.num_columns = self.SCREEN_SIZE[0] // self.CELL_SIZE
         self.num_rows = self.SCREEN_SIZE[1] // self.CELL_SIZE
+        self.image_size = (self.num_columns * self.CELL_SIZE, self.num_rows * self.CELL_SIZE)
         self.current_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
-        self.current_states_updates = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
-        self.color_channels = np.zeros((3, self.num_rows, self.num_columns)) #store current color info
+        self.next_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
+        self.color_channels = np.zeros((self.num_rows, self.num_columns, 3), dtype=np.float32) #store current color info
         self.rule_set = Ruleset(rule_name)
         self.st = ShotTool()
         self.build_cells()
@@ -55,41 +56,36 @@ class Grid:
         self.update_current_states()
         self.rule_set.add_tick()
 
-    def update_grid(self):
-        for col_idx, cell_col in enumerate(self.cells):
-            for row_idx, cell in enumerate(cell_col):
-                # todo if first or last, wrap from edge
-                if row_idx == 0 or row_idx == self.num_rows or col_idx == 0 or col_idx == self.num_columns:
-                    pass    
-                else:
-                    neighborhood = self.get_neighborhood(row_idx, col_idx) #slice neighborhood, not including self
-                    cell.cell_logic.update(neighborhood) #get, set neighboorhood sum for cell
-                cell.cell_visual.update(self.aging) #alter colors of cell according to aging method, update cell visual to pygame frame buffer
-                self.rule_set.apply_rules(cell) #toggle cell according to rules, to be applied on next run though
-                self.current_states_updates[row_idx, col_idx] = cell.cell_logic.alive #update cell state in updates array to be copied to working array on the next run
+    def update_current_states(self):
+        self.current_states = self.next_states.copy()
 
     def update_grid_II(self):
         """update grid with Shot array methods
         """
-        self.current_states_updates = self.st.calculate_next_sequential(self.current_states)
-        #self.age_colors()
+        self.next_states = self.st.calculate_next_sequential(self.current_states)
+        self.age_colors()
         self.update_window()
 
     def update_window(self):
-        #create image surface from current states, update to main window
-        state_image = np.ones_like(self.current_states, dtype=np.int8) * self.current_states * 255
-        new_size = tuple(np.array(state_image.shape) * 5)
-        state_image = np.transpose(state_image)
-        image_surface = pygame.pixelcopy.make_surface(cv2.resize(state_image, new_size, interpolation=cv2.INTER_NEAREST))
-        #image_surface = pygame.pixelcopy.make_surface(state_image)
+        image_surface = self.get_state_surface() 
         main_window = pygame.display.get_surface()
         main_window.blit(image_surface, main_window.get_rect())
+
+    def get_state_surface(self):
+        #create image surface from current states, update to main window
+        colored_states = np.moveaxis(self.color_channels, -1, 0) * self.current_states #make compatible for broadcast
+        colored_states = [cv2.resize(channel, self.image_size, interpolation=cv2.INTER_NEAREST) for channel in colored_states] #resize each channel
+        state_image = np.swapaxes(np.array((colored_states), dtype=np.int8), 0, -1) #return to standard image index format; rows, columns, channels
+        state_image = pygame.pixelcopy.make_surface(state_image)
+        return state_image
     
     def age_colors(self):
-        """get new colors by running each channel through age_channel_[...] ShotTool method
-        """
-        for channel in self.color_channels:
-            channel = self.st.age_channel_sequential(channel, self.current_states) #operate on, return altered channel
+        """get new colors by running each channel through age_channel_[...] ShotTool method"""
+        new_channels = []
+        for channel in np.moveaxis(self.color_channels, -1, 0):
+            new_channels.append(self.st.age_channel_sequential(channel, self.current_states))
+        new_channels = np.array(new_channels)
+        self.color_channels = np.moveaxis(new_channels, 0, -1)
 
     def refresh_cells(self, state_image):
         """
@@ -106,9 +102,6 @@ class Grid:
         neighborhood[1, 1] = 0
         return neighborhood
 
-    def update_current_states(self):
-        self.current_states = self.current_states_updates.copy()
-
     def all_on_visual_only(self):
         pass           
 
@@ -116,13 +109,26 @@ class Grid:
         #capture 2d bool array of current states
         for column in range(self.num_columns):
             for row in range(self.num_rows):
-                #self.current_states_updates[row, column] = self.cells[column][row].cell_logic.alive
+                #self.next_states[row, column] = self.cells[column][row].cell_logic.alive
                 self.current_states[row, column] = self.cells[column][row].cell_logic.alive
 
     def set_rules(self, name):
         logging.info(f'Ending ruleset: {self.rule_set} after {self.rule_set.run_ticks} ticks')
         self.rule_set = Ruleset(name)
         logging.info(f'Starting ruleset: {self.rule_set}')
+    
+    def update_grid(self):
+        for col_idx, cell_col in enumerate(self.cells):
+            for row_idx, cell in enumerate(cell_col):
+                # todo if first or last, wrap from edge
+                if row_idx == 0 or row_idx == self.num_rows or col_idx == 0 or col_idx == self.num_columns:
+                    pass    
+                else:
+                    neighborhood = self.get_neighborhood(row_idx, col_idx) #slice neighborhood, not including self
+                    cell.cell_logic.update(neighborhood) #get, set neighboorhood sum for cell
+                cell.cell_visual.update(self.aging) #alter colors of cell according to aging method, update cell visual to pygame frame buffer
+                self.rule_set.apply_rules(cell) #toggle cell according to rules, to be applied on next run though
+                self.next_states[row_idx, col_idx] = cell.cell_logic.alive #update cell state in updates array to be copied to working array on the next run
 
     def wrap_screen(self, ridx, cidx):
         #wrap screen
