@@ -165,9 +165,9 @@ class Capture:
         self.grid.manual_update_states()
             
     def load_image(self, image_path):
-        
         image_data = cv2.imread(image_path)
         resized = cv2.resize(image_data, (self.grid.num_columns, self.grid.num_rows))
+        self.grid.color_channels = resized
         edges = cv2.Canny(resized, 100, 250, L2gradient=True)
 
         for column in range(self.grid.num_columns):
@@ -178,6 +178,7 @@ class Capture:
                 else:
                     self.grid.cells[column][row].toggle_cell(0)
         self.grid.manual_update_states()
+        self.grid.switch_channels()
 
     def save_image(self):
         filename = f'{self.main_dir}/{self.screenshot_dir}/image_{self.shot_counter}.png'
