@@ -4,6 +4,7 @@ from pygame.locals import USEREVENT, KEYDOWN, QUIT, K_ESCAPE, K_l, K_i, K_r, K_s
 import os
 import cv2
 from models.performance_monitor import PerformanceMonitor
+import numpy as np
 
 logging.basicConfig(
     filename = 'simulation.log', 
@@ -167,7 +168,7 @@ class Capture:
     def load_image(self, image_path):
         image_data = cv2.imread(image_path)
         resized = cv2.resize(image_data, (self.grid.num_columns, self.grid.num_rows))
-        self.grid.color_channels = resized
+        self.grid.color_channels = np.array(resized, dtype=np.float32)
         edges = cv2.Canny(resized, 100, 250, L2gradient=True)
 
         for column in range(self.grid.num_columns):
