@@ -2,36 +2,43 @@ import numpy as np
 from models.ruleset_models import Ruleset
 
 class ShotTool:
-    def __init__(self, rule_set):
+    def __init__(self, grid):
         """methods for operating on state shots, represented as 
         2d grids of binary or 8-bit values"""
-        self.rule_set = rule_set
-        self.shot_history = [] #last 20 images processed
-
-    def age_colors(self, color_channels, current_states):
+        self.rule_set = grid.rule_set
+        self.grid = grid
+    
+    def age_colors(self, color_channels, current_states, states_histories):
         """get new colors by running each channel through age_channel_[...] ShotTool method"""
         new_channels = []
+        #reshape to (3, rows, columns)
         for channel in np.moveaxis(color_channels, -1, 0):
-            new_channels.append(self.age_channel_sequential(channel, current_states))
+            new_channels.append(self.age_channel(channel, current_states, states_histories))
         new_channels = np.array(new_channels)
         return np.moveaxis(new_channels, 0, -1)
 
-    def age_channel_sequential(self, input_channel, states):
+    def age_channel(self, input_channel, states, states_histories):
         """increment or decrement each element in input for similar 
         output based on states"""
         color_vals = input_channel.flatten()
         output = np.empty_like(color_vals)
+        flatter_history = states_histories.reshape(-1, states_histories.shape[-1])
         for idx, state in enumerate(states.flatten()):
             if state:
-                output[idx] = self.age_color(color_vals[idx])
+                output[idx] = self.age_color(color_vals[idx], flatter_history[idx, :])
+            else:
+                output[idx] = color_vals[idx]
         return np.reshape(output, input_channel.shape)
 
-    def age_color(self, current_color_value):
+    def age_color(self, current_color_value, current_cell_history):
         """return new color value within limits"""
-        if current_color_value > 250:
-            return 40
-        else:
-            return current_color_value + 1
+        if current_cell_history[-1]: # if last state was alive, age towards white
+            if current_color_value < 250:
+                return current_color_value + (current_cell_history.mean() / 2) #add according to average of last n states
+        else:# otherwise decrease color components
+            if current_color_value > 20: 
+                return current_color_value - (current_color_value / 250) #control darkening rate
+
 
     def calculate_next_sequential(self, state_shot):
         """calculate next state frame, one cell at a time"""
