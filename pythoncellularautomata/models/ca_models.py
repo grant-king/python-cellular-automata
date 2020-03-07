@@ -18,15 +18,16 @@ class Grid:
 
         self.cells = []
         self.total_cells = 0
-        self.cells_history = [] #list of sum of bools state history
         self.num_columns = self.SCREEN_SIZE[0] // self.CELL_SIZE
         self.num_rows = self.SCREEN_SIZE[1] // self.CELL_SIZE
         self.image_size = (self.num_columns * self.CELL_SIZE, self.num_rows * self.CELL_SIZE)
+
         self.current_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
         self.next_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
         self.color_channels = np.zeros((self.num_rows, self.num_columns, 3), dtype=np.float32) #store current color info
+        self.cells_history = np.zeros((self.num_rows, self.num_columns, 10), dtype=np.bool)
         self.rule_set = Ruleset(rule_name)
-        self.st = ShotTool(self.rule_set)
+        self.st = ShotTool(self)
         self.build_cells()
 
         logging.info(f'Grid initialized with {self.rule_set.name} rule at {ctime()} with {self.total_cells} cells')
@@ -37,7 +38,7 @@ class Grid:
         """
         intensity_channels = np.moveaxis(self.color_channels, -1, 0) #move axis for easy reordering
         reordered_intensity_channels = [intensity_channels[2], intensity_channels[1], intensity_channels[0]]
-        self.color_channels = np.moveaxis(np.array((reordered_intensity_channels), dtype=np.int8), 0, -1) #return to standard image index format; rows, columns, channels
+        self.color_channels = np.moveaxis(np.array((reordered_intensity_channels), dtype=np.float32), 0, -1) #return to standard image index format; rows, columns, channels
 
     def build_cells(self):
         self.cells = [[0 for row in range(self.num_rows)] for column in range(self.num_columns)]
@@ -63,8 +64,10 @@ class Grid:
         self.update_grid_II()
         self.update_current_states()
         self.rule_set.add_tick()
+        self.update_window()
 
     def update_current_states(self):
+        self.cells_history = np.dstack((self.cells_history, self.current_states))[:, :, 1:] #add states to end of history queue, advance
         self.current_states = self.next_states.copy()
 
     def update_grid_II(self):
@@ -72,8 +75,7 @@ class Grid:
         """
         self.next_states = self.st.calculate_next_sequential(self.current_states)
         if self.aging:
-            self.st.age_colors(self.color_channels, self.current_states)
-        self.update_window()
+            self.color_channels = self.st.age_colors(self.color_channels, self.current_states, self.cells_history)
 
     def update_window(self):
         image_surface = self.get_state_surface() 
@@ -83,6 +85,7 @@ class Grid:
     def get_state_surface(self):
         #create image surface from current states, update to main window
         colored_states = np.moveaxis(self.color_channels, -1, 0) * self.current_states #make compatible for broadcast
+        colored_states = colored_states + (255 - (np.moveaxis(self.color_channels, -1, 0)) * np.invert(self.current_states)) #add inverse colors for off cells
         colored_states = [cv2.resize(channel, self.image_size, interpolation=cv2.INTER_NEAREST).T for channel in colored_states] #resize, rotate each channel
         state_image = np.moveaxis(np.array((colored_states), dtype=np.int8), 0, -1) #return to standard image index format; rows, columns, channels
         state_image = pygame.pixelcopy.make_surface(state_image)
