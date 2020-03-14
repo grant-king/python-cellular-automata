@@ -2,6 +2,7 @@ import numpy as np
 from models.ruleset_models import Ruleset
 from numba import cuda
 import math, time
+import os
 
 class ShotTool:
     def __init__(self, grid):
@@ -122,25 +123,30 @@ class ShotToolCUDA:
         blockdim = (32, 32)
         griddim = (state_shot.shape[0] // blockdim[0] + 1, state_shot.shape[1] // blockdim[1] + 1)
 
-        survive = self.rule_set.rule_survive
-        born = self.rule_set.rule_born
+        survive = np.array(self.rule_set.rule_survive)
+        born = np.array(self.rule_set.rule_born)
 
         neighborhoods = np.zeros_like(state_shot, dtype=np.int8)
+        neighborhood = np.zeros((3, 3), dtype=np.int8)
         next_shot = np.zeros_like(state_shot)
 
         #lauch kernels 
-        get_neighborhood_sums[griddim, blockdim](state_shot, neighborhoods)
+        get_neighborhood_sums[griddim, blockdim](state_shot, neighborhood, neighborhoods)
+        cuda.synchronize()
         get_next_shot[griddim, blockdim](state_shot, neighborhoods, next_shot, survive, born)
+        cuda.synchronize()
 
         return next_shot
 
 
 @cuda.jit
-def get_neighborhood_sums(state_shot, neighborhoods_output):
-    threadx, thready = cuda.grid(2)
+def get_neighborhood_sums(state_shot, neighborhood, neighborhoods_output):
+    thready, threadx = cuda.grid(2)
+    stridey, stridex = cuda.gridsize(2)
+
     rows = (thready - 1, thready + 2)
     cols = (threadx - 1, threadx + 2)
-    neighborhood = state_shot[rows[0]:rows[1]][cols[0]:cols[1]]
+    neighborhood = state_shot[cols[0]:cols[1]][rows[0]:rows[1]]
     neighborhood[1][1] = 0
     nh_sum = 0
     for row in range(3):
@@ -153,20 +159,24 @@ def get_neighborhood_sums(state_shot, neighborhoods_output):
 def get_next_shot(state_shot, neighborhoods, output_shot, rules_survive, rules_born):
     """use neighborhood sum, state, and rules arrays to determine next state
     for given cell/thread location"""
-    threadx, thready = cuda.grid(2)
+    thready, threadx = cuda.grid(2)
     current_state = state_shot[thready][threadx]
     nh_sum = neighborhoods[thready][threadx]
 
+    #check if nh_sum is in rules
+    found = False
     if current_state: #if current state is on
         for item in rules_survive:
-            if item == nh_sum:
-                output_shot[thready][threadx] = 1
-            else:
-                output_shot[thready][threadx] = 0
+            if item == nh_sum: #if nh_sum found in rules
+                found = True
     else: #current state is off
         for item in rules_born:
-            if item == nh_sum:
-                output_shot[thready][threadx] = 1
-            else: 
-                output_shot[thready][threadx] = 0
-
+            if item == nh_sum: 
+                found = True
+    
+    #set next state accordingly                
+    if found:#if nh_sum found in rules
+        output_shot[thready][threadx] = 1
+    else:
+        output_shot[thready][threadx] = 0
+    
