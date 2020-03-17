@@ -70,15 +70,17 @@ class ShotToolCUDA:
     def age_colors(self, color_channels, current_states, states_histories):
         """get new colors by running each channel through age_channel_[...] ShotTool method"""
         new_channels = []
+        states_histories = np.ascontiguousarray(states_histories)
         #reshape to (3, rows, columns)
         for channel in np.moveaxis(color_channels, -1, 0):
             new_channels.append(self.age_channel(channel, current_states, states_histories))
         new_channels = np.array(new_channels)
         return np.moveaxis(new_channels, 0, -1)
 
-    def age_channel(self, input_channel, states, states_histories):
+    def age_channel(self, input_channel, state_shot, states_histories):
         """increment or decrement each element in input for similar 
         output based on states"""
+        """
         color_vals = input_channel.flatten()
         output = np.empty_like(color_vals)
         flatter_history = states_histories.reshape(-1, states_histories.shape[-1])
@@ -88,39 +90,27 @@ class ShotToolCUDA:
             else:
                 output[idx] = color_vals[idx]
         return np.reshape(output, input_channel.shape)
+        """
         ### todo implement as CUDA
-        pass
+        blockdim = (16, 16)
+        griddim = (state_shot.shape[0] // blockdim[0] + 1, state_shot.shape[1] // blockdim[1] + 1)
 
-    def age_color(self, current_color_value, current_cell_history):
-        """return new color value within limits"""
-        if current_cell_history[-1]: # if last state was alive, age towards white
-            if current_color_value < 250:
-                return current_color_value + (current_cell_history.mean() / 2) #add according to average of last n states
-        else:# otherwise decrease color components
-            if current_color_value > 20: 
-                return current_color_value - (current_color_value / 250) #control darkening rate
-        #todo implement as CUDA
-        pass
+        color_vals = np.array(input_channel, dtype=np.float32)
+        next_vals = np.zeros_like(color_vals)
+
+        d_color_vals = cuda.to_device(color_vals)
+        d_state_shot = cuda.to_device(state_shot)
+        d_states_histories = cuda.to_device(states_histories)
+        d_next_vals = cuda.to_device(next_vals)
+
+        get_next_color_vals[griddim, blockdim](d_color_vals, d_state_shot, d_states_histories, d_next_vals)
+
+        output = d_next_vals.copy_to_host()
+        return output
     
     def calculate_next(self, state_shot):
-        """calculate next state frame, one cell at a time"""
-        """
-        next_state_shot = np.zeros_like(state_shot)
-        shape = state_shot.shape
-        for col_idx in range(1, shape[1] - 1):
-            for row_idx in range(1, shape[0] - 1): #clip edges
-                rows = (row_idx - 1, row_idx + 2)
-                cols = (col_idx - 1, col_idx + 2)
-                neighborhood = state_shot[rows[0]:rows[1], cols[0]:cols[1]].copy()
-                neighborhood[1, 1] = 0 #don't count center
-                state = state_shot[row_idx, col_idx]
-                new_state = self.rule_set.get_next_state(state, neighborhood.sum())
-                next_state_shot[row_idx, col_idx] = new_state
-        
-        return next_state_shot
-        """
-        #### todo implement above as CUDA, below
-        blockdim = (5, 5)
+        """calculate next state frame in parallel"""
+        blockdim = (32, 32)
         griddim = (state_shot.shape[0] // blockdim[0] + 1, state_shot.shape[1] // blockdim[1] + 1)
 
         survive = np.array(self.rule_set.rule_survive, dtype=np.uint8)
@@ -142,7 +132,6 @@ class ShotToolCUDA:
 
         output = d_next_shot.copy_to_host()
         return output
-
 
 @cuda.jit
 def get_neighborhood_sums(state_shot, neighborhoods_output):
@@ -191,3 +180,24 @@ def get_next_shot(state_shot, neighborhoods, output_shot, rules_survive, rules_b
             else:
                 output_shot[idx][idy] = 0
             
+@cuda.jit
+def get_next_color_vals(current_vals, state_shot, states_histories, next_vals):
+    thready, threadx = cuda.grid(2)
+    stridey, stridex = cuda.gridsize(2)
+
+    for idx in range(threadx, current_vals.shape[0], stridex):
+        for idy in range(thready, current_vals.shape[1], stridey):
+            current_color_value = current_vals[idx][idy]
+            state = state_shot[idx][idy]
+            #calculate cell histories average
+            cell_history_mean = 0
+            for item in states_histories[idx][idy]:
+                cell_history_mean += item
+            cell_history_mean = cell_history_mean / 10
+            #change color value
+            if state:
+                if current_color_value < 250:
+                    next_vals[idx][idy] = current_color_value + cell_history_mean / 2
+            else: #cell is off
+                if current_color_value > 20:
+                    next_vals[idx][idy] = current_color_value - (current_color_value / 250)
