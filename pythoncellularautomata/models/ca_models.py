@@ -7,7 +7,7 @@ import logging
 from time import time, ctime
 from models.performance_monitor import PerformanceMonitor
 from models.ca_models2 import Control, StepClock, StepTimer, Capture
-from models.image_models import ShotTool
+from models.image_models import ShotTool, ShotToolCUDA
 from models.ruleset_models import Ruleset
 
 class Grid:
@@ -27,7 +27,8 @@ class Grid:
         self.color_channels = np.zeros((self.num_rows, self.num_columns, 3), dtype=np.float32) #store current color info
         self.cells_history = np.zeros((self.num_rows, self.num_columns, 10), dtype=np.bool)
         self.rule_set = Ruleset(rule_name)
-        self.st = ShotTool(self)
+        #self.st = ShotTool(self)
+        self.st = ShotToolCUDA(self)
         self.build_cells()
 
         logging.info(f'Grid initialized with {self.rule_set.name} rule at {ctime()} with {self.total_cells} cells')
@@ -73,7 +74,7 @@ class Grid:
     def update_grid_II(self):
         """update grid with Shot array methods
         """
-        self.next_states = self.st.calculate_next_sequential(self.current_states)
+        self.next_states = self.st.calculate_next(self.current_states)
         if self.aging:
             self.color_channels = self.st.age_colors(self.color_channels, self.current_states, self.cells_history)
 
