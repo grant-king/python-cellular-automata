@@ -1,6 +1,6 @@
 import numpy as np
 from models.ruleset_models import Ruleset
-from numba import cuda
+from numba import cuda, types
 import math, time
 import os
 
@@ -120,63 +120,74 @@ class ShotToolCUDA:
         return next_state_shot
         """
         #### todo implement above as CUDA, below
-        blockdim = (32, 32)
+        blockdim = (5, 5)
         griddim = (state_shot.shape[0] // blockdim[0] + 1, state_shot.shape[1] // blockdim[1] + 1)
 
-        survive = np.array(self.rule_set.rule_survive)
-        born = np.array(self.rule_set.rule_born)
+        survive = np.array(self.rule_set.rule_survive, dtype=np.uint8)
+        born = np.array(self.rule_set.rule_born, dtype=np.uint8)
 
-        neighborhoods = np.zeros_like(state_shot, dtype=np.int8)
-        neighborhood = np.zeros((3, 3), dtype=np.int8)
+        neighborhoods = np.zeros_like(state_shot, dtype=np.uint8)
         next_shot = np.zeros_like(state_shot)
 
-        #lauch kernels 
-        get_neighborhood_sums[griddim, blockdim](state_shot, neighborhood, neighborhoods)
-        cuda.synchronize()
-        get_next_shot[griddim, blockdim](state_shot, neighborhoods, next_shot, survive, born)
-        cuda.synchronize()
+        #copy to device memory
+        d_state_shot = cuda.to_device(state_shot)
+        d_neighborhoods = cuda.to_device(neighborhoods)
+        d_next_shot = cuda.to_device(next_shot)
+        d_survive = cuda.to_device(survive)
+        d_born = cuda.to_device(born)
 
-        return next_shot
+        #lauch kernels 
+        get_neighborhood_sums[griddim, blockdim](d_state_shot, d_neighborhoods)
+        get_next_shot[griddim, blockdim](d_state_shot, d_neighborhoods, d_next_shot, d_survive, d_born)
+
+        output = d_next_shot.copy_to_host()
+        return output
 
 
 @cuda.jit
-def get_neighborhood_sums(state_shot, neighborhood, neighborhoods_output):
+def get_neighborhood_sums(state_shot, neighborhoods_output):
     thready, threadx = cuda.grid(2)
     stridey, stridex = cuda.gridsize(2)
+    neighborhood = cuda.local.array((3,3), dtype=types.boolean)
 
-    rows = (thready - 1, thready + 2)
-    cols = (threadx - 1, threadx + 2)
-    neighborhood = state_shot[cols[0]:cols[1]][rows[0]:rows[1]]
-    neighborhood[1][1] = 0
-    nh_sum = 0
-    for row in range(3):
-        for col in range(3):
-            nh_sum += neighborhood[row][col]
-    
-    neighborhoods_output[thready][threadx] = nh_sum
+    for idx in range(threadx, state_shot.shape[0] - 1, stridex):
+        for idy in range(thready, state_shot.shape[1] - 1, stridey):        
+            neighborhood = state_shot[idx - 1:idx + 2, idy - 1:idy + 2]
+
+            nh_sum = 0
+            for row in range(3):
+                for col in range(3):
+                    if not (row == 1 and col == 1):
+                        nh_sum += neighborhood[col][row]
+            
+            neighborhoods_output[idx][idy] = nh_sum
 
 @cuda.jit
 def get_next_shot(state_shot, neighborhoods, output_shot, rules_survive, rules_born):
     """use neighborhood sum, state, and rules arrays to determine next state
     for given cell/thread location"""
     thready, threadx = cuda.grid(2)
-    current_state = state_shot[thready][threadx]
-    nh_sum = neighborhoods[thready][threadx]
+    stridey, stridex = cuda.gridsize(2)
 
-    #check if nh_sum is in rules
-    found = False
-    if current_state: #if current state is on
-        for item in rules_survive:
-            if item == nh_sum: #if nh_sum found in rules
-                found = True
-    else: #current state is off
-        for item in rules_born:
-            if item == nh_sum: 
-                found = True
-    
-    #set next state accordingly                
-    if found:#if nh_sum found in rules
-        output_shot[thready][threadx] = 1
-    else:
-        output_shot[thready][threadx] = 0
-    
+    for idx in range(threadx, state_shot.shape[0], stridex):
+        for idy in range(thready, state_shot.shape[1], stridey):
+            current_state = state_shot[idx][idy]
+            nh_sum = neighborhoods[idx][idy]
+
+            #check if nh_sum is in rules
+            found = False
+            if current_state: #if current state is on
+                for item in rules_survive:
+                    if item == nh_sum: #if nh_sum found in rules
+                        found = True
+            else: #current state is off
+                for item in rules_born:
+                    if item == nh_sum: 
+                        found = True
+            
+            #set next state accordingly                
+            if found:#if nh_sum found in rules
+                output_shot[idx][idy] = 1
+            else:
+                output_shot[idx][idy] = 0
+            
