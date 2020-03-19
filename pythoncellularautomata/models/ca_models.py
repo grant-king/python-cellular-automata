@@ -11,10 +11,11 @@ from models.image_models import ShotTool, ShotToolCUDA
 from models.ruleset_models import Ruleset
 
 class Grid:
-    def __init__(self, cell_size, rule_name, aging=False):
+    def __init__(self, cell_size, rule_name, aging=False, processing_mode=2):
         self.SCREEN_SIZE = pygame.display.get_surface().get_size()
         self.CELL_SIZE = cell_size
         self.aging = aging
+        self.processing_mode = processing_mode
 
         self.cells = []
         self.total_cells = 0
@@ -27,12 +28,21 @@ class Grid:
         self.color_channels = np.zeros((self.num_rows, self.num_columns, 3), dtype=np.float32) #store current color info
         self.cells_history = np.zeros((self.num_rows, self.num_columns, 10), dtype=np.bool)
         self.rule_set = Ruleset(rule_name)
-        #self.st = ShotTool(self)
-        self.st = ShotToolCUDA(self)
+        self.set_pm_settings()
         self.build_cells()
 
-        logging.info(f'Grid initialized with {self.rule_set.name} rule at {ctime()} with {self.total_cells} cells')
         print(f'Grid initialized with {self.rule_set.name} rule at {ctime()} with {self.total_cells} cells')
+        print(f'Using processing mode {self.processing_mode}')
+
+    def set_pm_settings(self):
+        if self.processing_mode == 1:
+            self.st = ShotTool(self)
+            self.grid_update_method = self.update_grid_II
+        elif self.processing_mode == 2:
+            self.st = ShotToolCUDA(self)
+            self.grid_update_method = self.update_grid_II
+        elif self.processing_mode == 0:
+            self.grid_update_method = self.update_grid
 
     def switch_channels(self):
         """Switch red and blue color channels for proper coloring with update_grid_II 
@@ -61,8 +71,7 @@ class Grid:
         self.manual_update_states()
 
     def update(self):
-        #self.update_grid()
-        self.update_grid_II()
+        self.grid_update_method()
         self.update_current_states()
         self.rule_set.add_tick()
         self.update_window()
@@ -82,24 +91,17 @@ class Grid:
         image_surface = self.get_state_surface() 
         main_window = pygame.display.get_surface()
         main_window.blit(image_surface, main_window.get_rect())
+        pygame.display.set_caption(f'{self.rule_set.name} step {self.rule_set.run_ticks}')
+        pygame.display.flip()
 
     def get_state_surface(self):
-        #create image surface from current states, update to main window
+        """create image surface from current states, update to main window"""
         colored_states = np.moveaxis(self.color_channels, -1, 0) * self.current_states #make compatible for broadcast
         colored_states = colored_states + (255 - (np.moveaxis(self.color_channels, -1, 0)) * np.invert(self.current_states)) #add inverse colors for off cells
         colored_states = [cv2.resize(channel, self.image_size, interpolation=cv2.INTER_NEAREST).T for channel in colored_states] #resize, rotate each channel
         state_image = np.moveaxis(np.array((colored_states), dtype=np.int8), 0, -1) #return to standard image index format; rows, columns, channels
         state_image = pygame.pixelcopy.make_surface(state_image)
         return state_image
-
-    def refresh_cells(self, state_image):
-        """
-        update each cell according to corresponding pixel location on 
-        the input image.
-        """
-        for col_idx, cell_col in enumerate(self.cells):
-            for row_idx, cell in enumerate(cell_col):
-                cell.cell_logic.alive = state_image[row_idx, col_idx]
 
     def get_neighborhood(self, row_idx, col_idx):
         #copy neighborhood surrounding cell location
@@ -118,9 +120,11 @@ class Grid:
                 self.current_states[row, column] = self.cells[column][row].cell_logic.alive
 
     def set_rules(self, name):
-        logging.info(f'Ending ruleset: {self.rule_set} after {self.rule_set.run_ticks} ticks')
+        #logging.info(f'Ending ruleset: {self.rule_set} after {self.rule_set.run_ticks} ticks')
+        print(f'Ending ruleset: {self.rule_set} after {self.rule_set.run_ticks} ticks')
         self.rule_set = Ruleset(name)
-        logging.info(f'Starting ruleset: {self.rule_set}')
+        #logging.info(f'Starting ruleset: {self.rule_set}')
+        print((f'Starting ruleset: {self.rule_set}'))
     
     def update_grid(self):
         for col_idx, cell_col in enumerate(self.cells):
@@ -134,37 +138,6 @@ class Grid:
                 cell.cell_visual.update(self.aging) #alter colors of cell according to aging method, update cell visual to pygame frame buffer
                 self.rule_set.apply_rules(cell) #toggle cell according to rules, to be applied on next run though
                 self.next_states[row_idx, col_idx] = cell.cell_logic.alive #update cell state in updates array to be copied to working array on the next run
-
-    def wrap_screen(self, ridx, cidx):
-        #wrap screen
-        if ridx == grid.num_rows - 1:
-            rplus = 0
-        else:
-            rplus = ridx + 1
-        if ridx == 0:
-            rminus = grid.num_rows - 1
-        else:
-            rminus = ridx - 1
-        if cidx == grid.num_columns - 1:
-            cplus = 0
-        else:
-            cplus = cidx + 1
-        if cidx == 0:
-            cminus = grid.num_columns - 1
-        else:
-            cminus = cidx - 1
-
-        #north, ne, e, se, s, sw, w, nw
-        neighbors = [
-            self.current_states[rminus, cidx],
-            self.current_states[rminus, cplus],
-            self.current_states[ridx, cplus],
-            self.current_states[rplus, cplus],
-            self.current_states[rplus, cidx],
-            self.current_states[rplus, cminus],
-            self.current_states[ridx, cminus], 
-            self.current_states[rminus, cminus],
-            ]
 
 
 class Cell:
