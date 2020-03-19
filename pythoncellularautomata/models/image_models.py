@@ -3,11 +3,11 @@ from models.ruleset_models import Ruleset
 from numba import cuda, types
 import math, time
 import os
+import logging
 
 class ShotTool:
     def __init__(self, grid):
-        """methods for operating on state shots, represented as 
-        2d grids of binary or 8-bit values"""
+        """Sequential methods for operating on state shots"""
         self.rule_set = grid.rule_set
         self.grid = grid
     
@@ -80,31 +80,22 @@ class ShotToolCUDA:
     def age_channel(self, input_channel, state_shot, states_histories):
         """increment or decrement each element in input for similar 
         output based on states"""
-        """
-        color_vals = input_channel.flatten()
-        output = np.empty_like(color_vals)
-        flatter_history = states_histories.reshape(-1, states_histories.shape[-1])
-        for idx, state in enumerate(states.flatten()):
-            if state:
-                output[idx] = self.age_color(color_vals[idx], flatter_history[idx, :])
-            else:
-                output[idx] = color_vals[idx]
-        return np.reshape(output, input_channel.shape)
-        """
-        ### todo implement as CUDA
         blockdim = (16, 16)
         griddim = (state_shot.shape[0] // blockdim[0] + 1, state_shot.shape[1] // blockdim[1] + 1)
 
         color_vals = np.array(input_channel, dtype=np.float32)
         next_vals = np.zeros_like(color_vals)
 
+        #create copies of the array on device memory
         d_color_vals = cuda.to_device(color_vals)
         d_state_shot = cuda.to_device(state_shot)
         d_states_histories = cuda.to_device(states_histories)
         d_next_vals = cuda.to_device(next_vals)
 
+        #launch kernels
         get_next_color_vals[griddim, blockdim](d_color_vals, d_state_shot, d_states_histories, d_next_vals)
 
+        #copy output back to host
         output = d_next_vals.copy_to_host()
         return output
     
@@ -146,7 +137,7 @@ def get_neighborhood_sums(state_shot, neighborhoods_output):
             nh_sum = 0
             for row in range(3):
                 for col in range(3):
-                    if not (row == 1 and col == 1):
+                    if not (row == 1 and col == 1): #don't count self state at center
                         nh_sum += neighborhood[col][row]
             
             neighborhoods_output[idx][idy] = nh_sum
