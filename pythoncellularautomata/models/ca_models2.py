@@ -1,17 +1,9 @@
-import logging
 import pygame
-from pygame.locals import USEREVENT, KEYDOWN, QUIT, K_ESCAPE, K_l, K_i, K_r, K_s, K_t
+from pygame.locals import USEREVENT, KEYDOWN, QUIT, K_ESCAPE, K_l, K_i, K_r, K_s, K_t, K_UP, K_DOWN
 import os
 import cv2
 from models.performance_monitor import PerformanceMonitor
 import numpy as np
-
-logging.basicConfig(
-    filename = 'simulation.log', 
-    level = logging.DEBUG, 
-    format = '%(levelname)s: %(message)s', 
-    filemode='a'
-    )
 
 class Control:
     def __init__(self, grid):
@@ -20,6 +12,14 @@ class Control:
         self.perf_monitor = PerformanceMonitor(grid)
         self.STATESHOTEVENT = USEREVENT + 1
         self.PERFSTATSEVENT = USEREVENT + 2
+        self.fps = 30
+        self.CONTROLS = """l: load from state shot\ni: load from image\n
+        r: change ruleset\ns: save image and state shot\n
+        t: set a timer\nup/down arrow keys: control FPS\n
+        esc: end current simulation"""
+
+    def write_performance(self):
+        self.perf_monitor.write_report()
 
     def catch_events(self, events):
         self.events = events
@@ -42,7 +42,7 @@ class Control:
         return True
 
     def listen(self):
-    #listen for button presses and refer to handlers
+        #listen for button presses and refer to handlers
         for event in self.events:
             if event.type == KEYDOWN:
                 if event.key == K_l:
@@ -52,9 +52,15 @@ class Control:
                 if event.key == K_r:
                     self.change_ruleset_handler()
                 if event.key == K_s:
+                    self.state_shot_handler()
+                    self.screen_shot_handler()
                     self.save_image_handler()
                 if event.key == K_t:
                     self.set_timer_handler()
+                if event.key == K_UP:
+                    self.increase_fps_handler()
+                if event.key == K_DOWN:
+                    self.decrease_fps_handler()
             if event.type == self.STATESHOTEVENT:
                 self.state_shot_handler()
             if event.type == self.PERFSTATSEVENT:
@@ -76,6 +82,9 @@ class Control:
     def save_image_handler(self):
         self.capture.save_image()
 
+    def screen_shot_handler(self):
+        self.capture.screen_shot()
+
     def load_state_handler(self):
         self.map_file_dir = input("type the directory name to load, within D:/chaos/: ")
         self.map_file_name = input(f"type the file name to load, within within D:/chaos/{self.map_file_dir}/: ")
@@ -94,6 +103,16 @@ class Control:
 
     def performance_event_handler(self):
         self.perf_monitor.update()
+
+    def increase_fps_handler(self):
+        if self.fps < self.perf_monitor.average_fps:
+            self.fps += 3
+            print(f'FPS cap increased to {self.fps}')
+    
+    def decrease_fps_handler(self):
+        if self.fps > 0:
+            self.fps -= 3
+            print(f'FPS cap decreased to {self.fps}')
 
 
 class StepClock:
@@ -137,23 +156,26 @@ class Capture:
         self.shot_counter = 1
 
         os.chdir(self.main_dir)
-        os.mkdir(f'./{self.screenshot_dir}/')
-        os.chdir(f'./{self.screenshot_dir}/')
 
     @property
     def step_counter(self):
         return self.grid.rule_set.run_ticks
 
     def screen_shot(self):
-        filename = f'{self.main_dir}/{self.screenshot_dir}/shot_{self.shot_counter}.png'
+        if not os.path.exists(f'./{self.screenshot_dir}/'):
+            os.mkdir(f'./{self.screenshot_dir}/')
+        filename = f'{self.main_dir}/{self.screenshot_dir}/shot_{self.step_counter}.png'
         pygame.image.save(self.main_window, filename)
-        self.shot_counter += 1
 
     def state_shot(self):
         #capture cell active states as b&w png
+        if not os.path.exists(f'./{self.screenshot_dir}/'):
+            os.mkdir(f'./{self.screenshot_dir}/')
+        os.chdir(f'./{self.screenshot_dir}/')
         filename = f'step_{self.step_counter}.png'
         states = np.array(self.grid.current_states, dtype=np.int8) * 255
         cv2.imwrite(filename, states)
+        os.chdir('../')
 
     def load_state_shot(self, map_path):
         #load from existing state map
@@ -182,7 +204,8 @@ class Capture:
         self.grid.switch_channels()
 
     def save_image(self):
-        filename = f'{self.main_dir}/{self.screenshot_dir}/image_{self.shot_counter}.png'
+        """
+        filename = f'{self.main_dir}/{self.screenshot_dir}/image_{self.step_counter}.png'
 
         save_states = self.grid.current_states.copy()
         all_on = np.full_like(save_states, 1)
@@ -194,4 +217,11 @@ class Capture:
                 cell.cell_visual.draw()
         pygame.image.save(self.main_window, filename)
 
-        self.grid.current_states = save_states
+        self.grid.current_states = save_states"""
+
+        if not os.path.exists(f'./{self.screenshot_dir}/'):
+            os.mkdir(f'./{self.screenshot_dir}/')
+        filename = f'{self.main_dir}/{self.screenshot_dir}/image_{self.step_counter}.png'
+        self.grid.switch_channels()
+        cv2.imwrite(filename, self.grid.color_channels)
+        self.grid.switch_channels()
