@@ -2,12 +2,12 @@
 A small library for configuring, viewing, and recording cellular automata simulations with Python.
 
 ## About PCA
-This project is made to provide Python programmers with an easy way to visualize and record 2D cellular automata for research.
+This project is made to provide Python programmers with a way to visualize and record 2D cellular automata.
 
-This project relies most on Pygame to visualize and handle user control. It also uses NumPy to speed up processing and opencv-python to capture and process image data. It currently runs on a single thread. I hope to incorporate multiprocessing soon and eventually custom CUDA kernels so that it will run larger grids without so much lag.
+This project relies most on Pygame to visualize and handle user control. It also uses NumPy for array operations, Numba for GPU processing, and opencv-python to capture and process image data. It is capable of running very slowly on just a CPU, but is meant to be run on CUDA-enabled GPUs.
 
 ## Installation
-To use this library you will have to first install the prerequisite packages:
+To use this library you will first have to install the prerequisite packages:
 
 --> Pygame
 
@@ -15,9 +15,13 @@ To use this library you will have to first install the prerequisite packages:
 
 --> NumPy
 
+--> Numba
+
 Clone this repository with git and use the command prompt to navigate to the folder containing hello_ca.py
 
 Run hello_ca.py with python: `..\python-cellular-automata\pythoncellularautomata> python hello_ca.py`
 
 ## Basic Usage
-Open hello_ca.py or example1.py in your text editor to explore the example configuration templates.
+Open hello_ca.py or any of the example files in your text editor to explore the example configuration templates.
+
+Each new automaton needs 
