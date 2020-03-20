@@ -11,11 +11,13 @@ from models.image_models import ShotTool, ShotToolCUDA
 from models.ruleset_models import Ruleset
 
 class Grid:
-    def __init__(self, cell_size, rule_name, aging=False, processing_mode=2):
+    def __init__(self, cell_size, rule_name, aging=False, processing_mode=2, show_colors=True, show_inverse=False):
         self.SCREEN_SIZE = pygame.display.get_surface().get_size()
         self.CELL_SIZE = cell_size
         self.aging = aging
         self.processing_mode = processing_mode
+        self.show_inverse = show_inverse
+        self.show_colors = show_colors
 
         self.cells = []
         self.total_cells = 0
@@ -97,9 +99,15 @@ class Grid:
     def get_state_surface(self):
         """create image surface from current states, update to main window"""
         colored_states = np.moveaxis(self.color_channels, -1, 0) * self.current_states #make compatible for broadcast
-        colored_states = colored_states + (255 - (np.moveaxis(self.color_channels, -1, 0)) * np.invert(self.current_states)) #add inverse colors for off cells
-        colored_states = [cv2.resize(channel, self.image_size, interpolation=cv2.INTER_NEAREST).T for channel in colored_states] #resize, rotate each channel
-        state_image = np.moveaxis(np.array((colored_states), dtype=np.int8), 0, -1) #return to standard image index format; rows, columns, channels
+        
+        if self.show_inverse:
+            colored_states = colored_states + (255 - (np.moveaxis(self.color_channels, -1, 0)) * np.invert(self.current_states)) #add inverse colors for off cells
+        if self.show_colors:
+            colored_states = [cv2.resize(channel, self.image_size, interpolation=cv2.INTER_NEAREST).T for channel in colored_states] #resize, rotate each channel
+            state_image = np.moveaxis(np.array((colored_states), dtype=np.int8), 0, -1) #return to standard image index format; rows, columns, channels
+        else:
+            state_image = cv2.resize(np.array(self.current_states * 255, dtype=np.uint8), self.image_size, interpolation=cv2.INTER_NEAREST).T
+        
         state_image = pygame.pixelcopy.make_surface(state_image)
         return state_image
 
