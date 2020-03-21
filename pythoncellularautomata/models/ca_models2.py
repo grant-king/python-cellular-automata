@@ -3,20 +3,22 @@ from pygame.locals import USEREVENT, KEYDOWN, QUIT, K_ESCAPE, K_l, K_i, K_r, K_s
 import os
 import cv2
 from models.performance_monitor import PerformanceMonitor
+from models.ruleset_models import Ruleset
 import numpy as np
 
 class Control:
     def __init__(self, grid):
+        self.grid = grid
         self.capture = Capture(grid)
         self.step_clock = StepClock()
         self.perf_monitor = PerformanceMonitor(grid)
         self.STATESHOTEVENT = USEREVENT + 1
         self.PERFSTATSEVENT = USEREVENT + 2
         self.fps = 30
-        self.CONTROLS = """l: load from state shot\ni: load from image\n
-        r: change ruleset\ns: save image and state shot\n
-        t: set a timer\nup/down arrow keys: control FPS\n
-        esc: end current simulation"""
+        self.CONTROLS = """l: load from state shot\ni: load from image
+r: change ruleset\ns: save image and state shot
+t: set a timer\nup/down arrow keys: control FPS
+esc: end current simulation\n"""
 
     def write_performance(self):
         self.perf_monitor.write_report()
@@ -99,7 +101,7 @@ class Control:
 
     def change_ruleset_handler(self):
         new_ruleset = input("type new ruleset name: ")
-        self.capture.grid.set_rules(new_ruleset)
+        self.set_rules(new_ruleset)
 
     def performance_event_handler(self):
         self.perf_monitor.update()
@@ -114,6 +116,11 @@ class Control:
             self.fps -= 3
             print(f'FPS cap decreased to {self.fps}')
 
+    def set_rules(self, rule_name):
+        print(f'Ending ruleset: {self.grid.rule_set} after {self.grid.rule_set.run_ticks} ticks')
+        self.grid.rule_set = Ruleset(rule_name)
+        print((f'Starting ruleset: {self.grid.rule_set}'))
+
 
 class StepClock:
     def __init__(self):
@@ -124,8 +131,10 @@ class StepClock:
         self.timers.append(new_timer)
 
     def update(self):
-        for timer in self.timers:
+        for idx, timer in enumerate(self.timers):
             timer.update()
+            if timer.ticks_remaining == -1:
+                self.timers.pop(idx)
 
 
 class StepTimer:
@@ -141,7 +150,8 @@ class StepTimer:
             self.ticks_remaining -= 1
         else:
             pygame.event.post(self.event)
-            self.ticks_remaining = self.timer_ticks - 1
+            self.ticks_remaining = -1
+        
 
 
 class Capture:
