@@ -8,7 +8,6 @@ import logging
 class ShotTool:
     def __init__(self, grid):
         """Sequential methods for operating on state shots"""
-        self.rule_set = grid.rule_set
         self.grid = grid
     
     def age_colors(self, color_channels, current_states, states_histories):
@@ -53,7 +52,7 @@ class ShotTool:
                 neighborhood = state_shot[rows[0]:rows[1], cols[0]:cols[1]].copy()
                 neighborhood[1, 1] = 0 #don't count center
                 state = state_shot[row_idx, col_idx]
-                new_state = self.rule_set.get_next_state(state, neighborhood.sum())
+                new_state = self.grid.rule_set.get_next_state(state, neighborhood.sum())
                 next_state_shot[row_idx, col_idx] = new_state
         
         return next_state_shot
@@ -64,7 +63,6 @@ class ShotToolCUDA:
     def __init__(self, grid):
         """methods for operating on state shots, represented as 
         2d grids of binary or 8-bit values"""
-        self.rule_set = grid.rule_set
         self.grid = grid
     
     def age_colors(self, color_channels, current_states, states_histories):
@@ -104,8 +102,8 @@ class ShotToolCUDA:
         blockdim = (32, 32)
         griddim = (state_shot.shape[0] // blockdim[0] + 1, state_shot.shape[1] // blockdim[1] + 1)
 
-        survive = np.array(self.rule_set.rule_survive, dtype=np.uint8)
-        born = np.array(self.rule_set.rule_born, dtype=np.uint8)
+        survive = np.array(self.grid.rule_set.rule_survive, dtype=np.uint8)
+        born = np.array(self.grid.rule_set.rule_born, dtype=np.uint8)
 
         neighborhoods = np.zeros_like(state_shot, dtype=np.uint8)
         next_shot = np.zeros_like(state_shot)
