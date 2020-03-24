@@ -6,8 +6,11 @@ class PerformanceMonitor:
         self.grid = grid
         self.total_frames = 0
         self.total_cells = grid.total_cells
-        self.log_file = '../performance.txt'
-        self.report = f'Grid initialized with {self.grid.rule_set.name} rule at {time.ctime()} with {self.grid.total_cells} cells\nUsing processing mode {self.grid.processing_mode}\n'
+        self.log_file = 'performance.txt'
+        self.report = f"""Grid initialized with {self.grid.rule_set.name} rule at {time.ctime()}
+With {self.grid.total_cells} cells as {self.grid.num_columns}x{self.grid.num_rows}
+Using processing mode {self.grid.processing_mode}, 
+show_colors: {self.grid.show_colors}, aging: {self.grid.aging}, show_inverse: {grid.show_inverse}\n"""
 
     @property
     def tick_total(self):
@@ -26,7 +29,7 @@ class PerformanceMonitor:
         #make a log entry summarizing performance since last log
         av_fps = self.average_fps
         av_fppps = self.average_fppps
-        message = f'Simulation running at an average {av_fps:.4} frames per second'
+        message = f'Running at {av_fps:.4} FPS on average'
         print(message)
         self.add_to_report(message)
 
