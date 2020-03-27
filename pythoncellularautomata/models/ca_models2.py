@@ -2,6 +2,7 @@ import pygame
 from pygame.locals import USEREVENT, KEYDOWN, QUIT, K_ESCAPE, K_l, K_i, K_r, K_s, K_t, K_UP, K_DOWN
 import os
 import cv2
+from skimage import exposure
 from models.performance_monitor import PerformanceMonitor
 from models.ruleset_models import Ruleset
 import numpy as np
@@ -214,24 +215,11 @@ class Capture:
         self.grid.switch_channels()
 
     def save_image(self):
-        """
-        filename = f'{self.main_dir}/{self.screenshot_dir}/image_{self.step_counter}.png'
-
-        save_states = self.grid.current_states.copy()
-        all_on = np.full_like(save_states, 1)
-        self.grid.current_states = all_on
-
-        for cell_col in self.grid.cells:
-            for cell in cell_col:
-                cell.cell_visual.surface.fill(cell.cell_visual.color)
-                cell.cell_visual.draw()
-        pygame.image.save(self.main_window, filename)
-
-        self.grid.current_states = save_states"""
-
+        """Save all current cell colors, regardless of state, as equilized color image"""
         if not os.path.exists(f'./{self.screenshot_dir}/'):
             os.mkdir(f'./{self.screenshot_dir}/')
         filename = f'{self.main_dir}/{self.screenshot_dir}/image_{self.step_counter}.png'
-        self.grid.switch_channels()
-        cv2.imwrite(filename, self.grid.color_channels)
-        self.grid.switch_channels()
+        bgr_img = cv2.cvtColor(self.grid.color_channels, cv2.COLOR_RGB2BGR)
+        equalized = exposure.equalize_adapthist(np.array(bgr_img, dtype=np.uint8))
+        cv2.imwrite(filename, equalized * 255)
+        
