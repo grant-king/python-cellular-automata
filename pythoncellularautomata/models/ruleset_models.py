@@ -3,12 +3,13 @@ from time import time
 
 class Ruleset:
     def __init__(self, name):
-        RULE_SETS = {
+        self.RULE_SETS = {
             '2x2': {'survive': [1, 2, 5], 'born': [3, 6]}, 
             'amoeba': {'survive': [1, 3, 5, 8], 'born': [3, 5, 7]},
             'assimilation': {'survive': [4, 5, 6, 7], 'born': [3, 4, 5]},
             'coagulations': {'survive': [2, 3, 5, 6, 7, 8], 'born': [3, 7, 8]},
             'coral': {'survive': [4, 5, 6, 7, 8], 'born': [3]},
+            'corrosion': {'survive': [1, 2, 4], 'born': [3]}, 
             'conway': {'survive': [2, 3], 'born': [3]},
             'daynight': {'survive': [3, 4, 6, 7, 8], 'born': [3, 6, 7, 8]},
             'diamoeba': {'survive': [5, 6, 7, 8], 'born': [3, 5, 6, 7, 8]},
@@ -38,7 +39,7 @@ class Ruleset:
         }
         self.init_time = time()
         self.name = name
-        self.rule_set = RULE_SETS[self.name]
+        self.rule_set = self.RULE_SETS[self.name]
         self.rule_survive = np.array(self.rule_set['survive'], np.int8)
         self.rule_born = np.array(self.rule_set['born'], np.int8)
         self.run_ticks = 0
