@@ -9,13 +9,15 @@ This project relies most on Pygame to visualize and handle user control. It also
 ## Installation
 To use this library you will first have to install the prerequisite packages:
 
---> Pygame
+--> Pygame: >pip install pygame
 
---> OpenCV-Python
+--> OpenCV-Python: >conda install opencv
 
---> NumPy
+--> NumPy 
 
---> Numba
+--> Numba: >conda install numba ; >conda install cudatoolkit
+
+--> Scikit-Image: >conda install scikit-image
 
 Clone this repository with git and use the command prompt to navigate to the folder containing hello_ca.py
 
@@ -24,4 +26,4 @@ Run hello_ca.py with python: `..\python-cellular-automata\pythoncellularautomata
 ## Basic Usage
 Open hello_ca.py or any of the example files in your text editor to explore the example configuration templates.
 
-Each new automaton needs 
+
