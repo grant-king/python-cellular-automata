@@ -39,7 +39,7 @@ class ShotTool:
                 return current_color_value + (current_cell_history.mean() / 2) #add according to average of last n states
         else:# otherwise decrease color components
             if current_color_value > 20: 
-                return current_color_value - (current_color_value / 250) #control darkening rate
+                return current_color_value - (current_cell_history.mean() / 2) #control darkening rate
 
     def calculate_next(self, state_shot):
         """calculate next state frame, one cell at a time"""
@@ -189,4 +189,4 @@ def get_next_color_vals(current_vals, state_shot, states_histories, next_vals):
                     next_vals[idx][idy] = current_color_value + cell_history_mean / 2
             else: #cell is off
                 if current_color_value > 20:
-                    next_vals[idx][idy] = current_color_value - (current_color_value / 250)
+                    next_vals[idx][idy] = current_color_value - cell_history_mean / 2
