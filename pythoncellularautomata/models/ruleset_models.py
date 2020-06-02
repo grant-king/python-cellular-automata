@@ -2,7 +2,7 @@ import numpy as np
 from time import time
 
 class Ruleset:
-    def __init__(self, name):
+    def __init__(self, name='conway'):
         self.RULE_SETS = {
             '2x2': {'survive': [1, 2, 5], 'born': [3, 6]}, 
             'amoeba': {'survive': [1, 3, 5, 8], 'born': [3, 5, 7]},

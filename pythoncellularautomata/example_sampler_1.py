@@ -1,3 +1,5 @@
+"""This example starts a series of simulations that exhibit how the visual output changes depending on the 
+Grid initilization settings"""
 import pygame
 from pygame.locals import QUIT
 from models.ca_models import Grid, Capture, Control

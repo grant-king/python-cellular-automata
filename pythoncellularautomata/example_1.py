@@ -2,8 +2,8 @@ import pygame
 from pygame.locals import QUIT
 from models.ca_models import Grid, Capture, Control
 
-SCREEN_SIZE = [1920, 1080]
-CELL_SIZE = 3
+SCREEN_SIZE = [1920, 1080]#[960, 540] 
+CELL_SIZE = 2
 BACKGROUND_COLOR = [0, 0, 0]
 
 def main_loop():
@@ -12,16 +12,12 @@ def main_loop():
     clock = pygame.time.Clock()
     main_window = pygame.display.set_mode(SCREEN_SIZE)
     
-    grid = Grid(CELL_SIZE, 'coagulations', show_colors=True, aging=True)
+    grid = Grid(CELL_SIZE, 'walledcities', show_colors=1, aging=1)
     control = Control(grid)
-    print(control.CONTROLS)
 
     #grid.random_seed()
-    control.capture.load_image("D:/chaos/extra/fish.jpg")
-    control.step_clock.set_timer(QUIT, 1650) #auto off after n steps
-    
-    #capture stateshot of seed
-    control.capture.state_shot()
+    control.capture.load_image("D:/chaos/extra/utah.jpg")
+    #control.step_clock.set_timer(QUIT, 5500) #auto off after n steps
 
     #frame update loop
     while control.running:

@@ -7,12 +7,13 @@ import logging
 from time import time, ctime
 from models.performance_monitor import PerformanceMonitor
 from models.ca_models2 import Control, StepClock, StepTimer, Capture
-from models.image_models import ShotTool, ShotToolCUDA
+from models.functional_models import ShotTool, ShotToolCUDA
 from models.ruleset_models import Ruleset
 
 class Grid:
-    def __init__(self, cell_size, rule_name, aging=False, processing_mode=2, show_colors=True, show_inverse=False):
-        self.SCREEN_SIZE = pygame.display.get_surface().get_size()
+    def __init__(self, cell_size, rule_name, aging=False, processing_mode=2, show_colors=False, show_inverse=False):
+        #set grid settings
+        self.SCREEN_SIZE = pygame.display.get_surface().get_size() #width, height
         self.CELL_SIZE = cell_size
         self.aging = aging
         self.processing_mode = processing_mode
@@ -23,7 +24,7 @@ class Grid:
         self.total_cells = 0
         self.num_columns = self.SCREEN_SIZE[0] // self.CELL_SIZE
         self.num_rows = self.SCREEN_SIZE[1] // self.CELL_SIZE
-        self.image_size = (self.num_columns * self.CELL_SIZE, self.num_rows * self.CELL_SIZE)
+        self.image_size = (self.num_columns * self.CELL_SIZE, self.num_rows * self.CELL_SIZE) #width, height
 
         self.current_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
         self.next_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
@@ -128,10 +129,8 @@ class Grid:
                 self.current_states[row, column] = self.cells[column][row].cell_logic.alive
 
     def set_rules(self, name):
-        #logging.info(f'Ending ruleset: {self.rule_set} after {self.rule_set.run_ticks} ticks')
         print(f'Ending ruleset: {self.rule_set} after {self.rule_set.run_ticks} ticks')
         self.rule_set = Ruleset(name)
-        #logging.info(f'Starting ruleset: {self.rule_set}')
         print((f'Starting ruleset: {self.rule_set}'))
     
     def update_grid(self):
