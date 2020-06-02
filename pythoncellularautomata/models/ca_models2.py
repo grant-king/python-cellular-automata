@@ -5,6 +5,7 @@ import cv2
 from skimage import exposure
 from models.performance_monitor import PerformanceMonitor
 from models.ruleset_models import Ruleset
+#from models.controls_ui import ButtonWindow
 import numpy as np
 
 class Control:
@@ -16,10 +17,12 @@ class Control:
         self.STATESHOTEVENT = USEREVENT + 1
         self.PERFSTATSEVENT = USEREVENT + 2
         self.fps = 30
+        #self.control_gui = ButtonWindow(self)
         self.CONTROLS = """l: load from state shot\ni: load from image
 r: change ruleset\ns: save image and state shot
 t: set a timer\nup/down arrow keys: control FPS
 esc: end current simulation\n"""
+        print(self.CONTROLS)
 
     def write_performance(self):
         self.perf_monitor.write_report()
@@ -198,10 +201,32 @@ class Capture:
                     self.grid.cells[column][row].toggle_cell(1)
         self.grid.manual_update_states()
             
+    def aspect_resize(self, image_data):
+        #preserve aspect on resize
+        og_size = image_data.shape[:2] #height, width
+        max_size = self.grid.SCREEN_SIZE #width, height
+        resize_ratio = min(max_size[1] / og_size[0], max_size[0] / og_size[1])
+        new_size = ((og_size[0] * resize_ratio), (og_size[1] * resize_ratio)) #height, width
+        
+        num_rows = round(new_size[0] / self.grid.CELL_SIZE)
+        num_columns = round(new_size[1] / self.grid.CELL_SIZE)
+        
+        resized = cv2.resize(image_data, (num_columns, num_rows))
+        
+        pygame.display.set_mode([int(dim) for dim in new_size[::-1]], flags=pygame.RESIZABLE)
+        self.grid.SCREEN_SIZE = new_size
+        self.grid.image_size = (num_columns * self.grid.CELL_SIZE, num_rows * self.grid.CELL_SIZE) #width, height
+        self.grid.num_rows = num_rows
+        self.grid.num_columns = num_columns
+        self.grid.current_states = np.ascontiguousarray(self.grid.current_states[:num_rows, :num_columns])
+        self.grid.color_channels = np.array(resized, dtype=np.float32)
+        self.grid.cells_history = np.zeros((num_rows, num_columns, 10), dtype=np.bool)
+
+        return resized
+
     def load_image(self, image_path):
         image_data = cv2.imread(image_path)
-        resized = cv2.resize(image_data, (self.grid.num_columns, self.grid.num_rows))
-        self.grid.color_channels = np.array(resized, dtype=np.float32)
+        resized = self.aspect_resize(image_data)
         edges = cv2.Canny(resized, 100, 250, L2gradient=True)
 
         for column in range(self.grid.num_columns):
@@ -220,6 +245,6 @@ class Capture:
             os.mkdir(f'./{self.screenshot_dir}/')
         filename = f'{self.main_dir}/{self.screenshot_dir}/image_{self.step_counter}.png'
         bgr_img = cv2.cvtColor(self.grid.color_channels, cv2.COLOR_RGB2BGR)
-        equalized = exposure.equalize_adapthist(np.array(bgr_img, dtype=np.uint8))
-        cv2.imwrite(filename, equalized * 255)
+        equalized = exposure.equalize_adapthist(np.array(bgr_img, dtype=np.uint8)) * 255
+        cv2.imwrite(filename, equalized)
         
