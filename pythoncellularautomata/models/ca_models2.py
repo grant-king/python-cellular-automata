@@ -1,6 +1,7 @@
 import pygame
 from pygame.locals import USEREVENT, KEYDOWN, QUIT, K_ESCAPE, K_l, K_i, K_r, K_s, K_t, K_UP, K_DOWN
 import os
+import math
 import cv2
 from skimage import exposure
 from models.performance_monitor import PerformanceMonitor
@@ -105,20 +106,36 @@ esc: end current simulation\n"""
 
     def change_ruleset_handler(self):
         new_ruleset = input("type new ruleset name: ")
-        self.set_rules(new_ruleset)
+        rulesets = self.grid.rule_set.RULE_SETS.keys()
+        if new_ruleset in rulesets:
+            self.set_rules(new_ruleset)
+        else:
+            print(f'{new_ruleset} not found in ruleset names')
+            print(f'Please choose from any of the following:\n{list(rule_name for rule_name in rulesets)}')
 
     def performance_event_handler(self):
         self.perf_monitor.update()
 
     def increase_fps_handler(self):
-        if self.fps < self.perf_monitor.average_fps:
-            self.fps += 3
-            print(f'FPS cap increased to {self.fps}')
+        if self.fps < 100 and self.fps > 0:
+            self.fps += math.ceil((self.fps + 10) / 10)
+        elif self.fps == 0:
+            self.fps += 30
+        else:
+            self.fps = 0
+        print(f'FPS cap increased to {self.fps}')
+
+        if self.fps == 0:
+            print(f'FPS unlimited')
     
     def decrease_fps_handler(self):
         if self.fps > 0:
-            self.fps -= 3
-            print(f'FPS cap decreased to {self.fps}')
+            self.fps -= math.ceil((self.fps + 10) / 10)
+            if self.fps <= 0:
+                self.fps == 0
+                print(f'FPS unlimited')
+            else:
+                print(f'FPS cap decreased to {self.fps}')
 
     def set_rules(self, rule_name):
         print(f'Ending ruleset: {self.grid.rule_set} after {self.grid.rule_set.run_ticks} ticks')
