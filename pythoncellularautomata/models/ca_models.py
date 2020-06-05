@@ -20,20 +20,19 @@ class Grid:
         self.show_inverse = show_inverse
         self.show_colors = show_colors
 
-        self.cells = []
-        self.total_cells = 0
         self.num_columns = self.SCREEN_SIZE[0] // self.CELL_SIZE
         self.num_rows = self.SCREEN_SIZE[1] // self.CELL_SIZE
+        self.total_cells = self.num_rows * self.num_columns
         self.image_size = (self.num_columns * self.CELL_SIZE, self.num_rows * self.CELL_SIZE) #width, height
 
         self.current_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
         self.next_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
-        self.color_channels = np.zeros((self.num_rows, self.num_columns, 3), dtype=np.float32) #store current color info
+        self.color_channels = np.random.uniform(low=100, high=155, size=(self.num_rows, self.num_columns, 3))
         self.cells_history = np.zeros((self.num_rows, self.num_columns, 10), dtype=np.bool)
         self.color_headings = np.ones((self.num_rows, self.num_columns, 3), dtype=np.bool) #is the color going forwards or backwards?
         self.rule_set = Ruleset(rule_name)
         self.set_pm_settings()
-        self.build_cells()
+        
 
         print(f'Grid initialized with {self.rule_set.name} rule at {ctime()} with {self.total_cells} cells')
         print(f'Using processing mode {self.processing_mode}')
@@ -41,12 +40,13 @@ class Grid:
     def set_pm_settings(self):
         if self.processing_mode == 1:
             self.st = ShotTool(self)
-            self.grid_update_method = self.update_grid_II
+            self.grid_update_method = self.update_grid
         elif self.processing_mode == 2:
             self.st = ShotToolCUDA(self)
-            self.grid_update_method = self.update_grid_II
-        elif self.processing_mode == 0:
             self.grid_update_method = self.update_grid
+        elif self.processing_mode == 0:
+            self.legacy_cells_object = CellContainer(self)
+            self.grid_update_method = self.legacy_cells_object.update_grid
 
     def switch_channels(self):
         """Switch red and blue color channels for proper coloring with update_grid_II 
@@ -55,24 +55,8 @@ class Grid:
         reordered_intensity_channels = [intensity_channels[2], intensity_channels[1], intensity_channels[0]]
         self.color_channels = np.moveaxis(np.array((reordered_intensity_channels), dtype=np.float32), 0, -1) #return to standard image index format; rows, columns, channels
 
-    def build_cells(self):
-        self.cells = [[0 for row in range(self.num_rows)] for column in range(self.num_columns)]
-        for col_idx in range(self.num_columns):
-            for row_idx in range(self.num_rows):
-                self.cells[col_idx][row_idx] = Cell(self.CELL_SIZE, col_idx, row_idx)
-                self.total_cells += 1
-
-    def random_seed(self):
-        DEAD_RATIO = 2 / 7
-        chances = list([1 for dead in range(int(1 / DEAD_RATIO - 1))])
-        chances.append(0)
-        seedline_cols = set([random.randrange(self.num_columns) for column in range(random.randrange(10, self.num_columns//5))])
-        for col_idx, cell_col in enumerate(self.cells):
-            if col_idx in seedline_cols:
-                for cell in cell_col:
-                    cell.toggle_cell(random.choice(chances))
-        
-        self.manual_update_states()
+    def random_seed(self, living_ratio=0.3):
+        self.current_states = np.random.rand(self.num_rows, self.num_columns) < living_ratio
 
     def update(self):
         self.grid_update_method()
@@ -84,7 +68,7 @@ class Grid:
         self.cells_history = np.dstack((self.cells_history, self.current_states))[:, :, 1:] #add states to end of history queue, advance
         self.current_states = self.next_states.copy()
 
-    def update_grid_II(self):
+    def update_grid(self):
         """update grid with Shot array methods
         """
         self.next_states = self.st.calculate_next(self.current_states)
@@ -117,11 +101,33 @@ class Grid:
         #copy neighborhood surrounding cell location
         neighborhood = self.current_states[row_idx-1:row_idx+2, col_idx-1:col_idx+2].copy()
         neighborhood[1, 1] = 0
-        return neighborhood
+        return neighborhood        
 
-    def all_on_visual_only(self):
-        pass           
+    def set_rules(self, name):
+        print(f'Ending ruleset: {self.rule_set} after {self.rule_set.run_ticks} ticks')
+        self.rule_set = Ruleset(name)
+        print((f'Starting ruleset: {self.rule_set}'))    
+    
 
+class CellContainer:
+    def __init__(self, grid):
+        self.grid = grid
+        self.cells = []
+        self.build_cells()
+
+    def update_grid(self):
+        for col_idx, cell_col in enumerate(self.cells):
+            for row_idx, cell in enumerate(cell_col):
+                # todo if first or last, wrap from edge
+                if row_idx == 0 or row_idx == self.grid.num_rows or col_idx == 0 or col_idx == self.grid.num_columns:
+                    pass    
+                else:
+                    neighborhood = self.grid.get_neighborhood(row_idx, col_idx) #slice neighborhood, not including self
+                    cell.cell_logic.update(neighborhood) #get, set neighboorhood sum for cell
+                cell.cell_visual.update(self.grid.aging) #alter colors of cell according to aging method, update cell visual to pygame frame buffer
+                self.grid.rule_set.apply_rules(cell) #toggle cell according to rules, to be applied on next run though
+                self.grid.next_states[row_idx, col_idx] = cell.cell_logic.alive #update cell state in updates array to be copied to working array on the next run
+    
     def manual_update_states(self):
         #capture 2d bool array of current states
         for column in range(self.num_columns):
@@ -129,23 +135,11 @@ class Grid:
                 #self.next_states[row, column] = self.cells[column][row].cell_logic.alive
                 self.current_states[row, column] = self.cells[column][row].cell_logic.alive
 
-    def set_rules(self, name):
-        print(f'Ending ruleset: {self.rule_set} after {self.rule_set.run_ticks} ticks')
-        self.rule_set = Ruleset(name)
-        print((f'Starting ruleset: {self.rule_set}'))
-    
-    def update_grid(self):
-        for col_idx, cell_col in enumerate(self.cells):
-            for row_idx, cell in enumerate(cell_col):
-                # todo if first or last, wrap from edge
-                if row_idx == 0 or row_idx == self.num_rows or col_idx == 0 or col_idx == self.num_columns:
-                    pass    
-                else:
-                    neighborhood = self.get_neighborhood(row_idx, col_idx) #slice neighborhood, not including self
-                    cell.cell_logic.update(neighborhood) #get, set neighboorhood sum for cell
-                cell.cell_visual.update(self.aging) #alter colors of cell according to aging method, update cell visual to pygame frame buffer
-                self.rule_set.apply_rules(cell) #toggle cell according to rules, to be applied on next run though
-                self.next_states[row_idx, col_idx] = cell.cell_logic.alive #update cell state in updates array to be copied to working array on the next run
+    def build_cells(self):
+        self.cells = [[0 for row in range(self.grid.num_rows)] for column in range(self.grid.num_columns)]
+        for col_idx in range(self.grid.num_columns):
+            for row_idx in range(self.grid.num_rows):
+                self.cells[col_idx][row_idx] = Cell(self.grid.CELL_SIZE, col_idx, row_idx)
 
 
 class Cell:
