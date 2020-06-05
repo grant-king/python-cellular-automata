@@ -30,6 +30,7 @@ class Grid:
         self.next_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
         self.color_channels = np.zeros((self.num_rows, self.num_columns, 3), dtype=np.float32) #store current color info
         self.cells_history = np.zeros((self.num_rows, self.num_columns, 10), dtype=np.bool)
+        self.color_headings = np.ones((self.num_rows, self.num_columns, 3), dtype=np.bool) #is the color going forwards or backwards?
         self.rule_set = Ruleset(rule_name)
         self.set_pm_settings()
         self.build_cells()
@@ -88,7 +89,7 @@ class Grid:
         """
         self.next_states = self.st.calculate_next(self.current_states)
         if self.aging:
-            self.color_channels = self.st.age_colors(self.color_channels, self.current_states, self.cells_history)
+            self.color_channels, self.color_headings = self.st.age_colors(self.color_channels, self.current_states, self.cells_history, self.color_headings)
 
     def update_window(self):
         image_surface = self.get_state_surface() 

@@ -65,17 +65,20 @@ class ShotToolCUDA:
         2d grids of binary or 8-bit values"""
         self.grid = grid
     
-    def age_colors(self, color_channels, current_states, states_histories):
+    def age_colors(self, color_channels, current_states, states_histories, color_headings):
         """get new colors by running each channel through age_channel_[...] ShotTool method"""
         new_channels = []
         states_histories = np.ascontiguousarray(states_histories)
         #reshape to (3, rows, columns)
-        for channel in np.moveaxis(color_channels, -1, 0):
-            new_channels.append(self.age_channel(channel, current_states, states_histories))
-        new_channels = np.array(new_channels)
-        return np.moveaxis(new_channels, 0, -1)
+        headings = np.moveaxis(color_headings, -1, 0)
+        for idx, channel in enumerate(np.moveaxis(color_channels, -1, 0)):
+            new_channels.append(self.age_channel(channel, current_states, states_histories, np.ascontiguousarray(headings[idx])))
+        new_colors = np.array([item[0] for item in new_channels])
+        new_headings = np.array([item[1] for item in new_channels])
 
-    def age_channel(self, input_channel, state_shot, states_histories):
+        return np.moveaxis(new_colors, 0, -1), np.moveaxis(new_headings, 0, -1)
+
+    def age_channel(self, input_channel, state_shot, states_histories, channel_headings):
         """increment or decrement each element in input for similar 
         output based on states"""
         blockdim = (16, 16)
@@ -89,12 +92,13 @@ class ShotToolCUDA:
         d_state_shot = cuda.to_device(state_shot)
         d_states_histories = cuda.to_device(states_histories)
         d_next_vals = cuda.to_device(next_vals)
+        d_color_headings = cuda.to_device(channel_headings)
 
         #launch kernels
-        get_next_color_vals[griddim, blockdim](d_color_vals, d_state_shot, d_states_histories, d_next_vals)
+        get_next_color_vals[griddim, blockdim](d_color_vals, d_state_shot, d_states_histories, d_next_vals, d_color_headings)
 
         #copy output back to host
-        output = d_next_vals.copy_to_host()
+        output = d_next_vals.copy_to_host(), d_color_headings.copy_to_host()
         return output
     
     def calculate_next(self, state_shot):
@@ -170,23 +174,34 @@ def get_next_shot(state_shot, neighborhoods, output_shot, rules_survive, rules_b
                 output_shot[idx][idy] = 0
             
 @cuda.jit
-def get_next_color_vals(current_vals, state_shot, states_histories, next_vals):
+def get_next_color_vals(current_vals, state_shot, states_histories, next_vals, color_headings):
     thready, threadx = cuda.grid(2)
     stridey, stridex = cuda.gridsize(2)
 
     for idx in range(threadx, current_vals.shape[0], stridex):
         for idy in range(thready, current_vals.shape[1], stridey):
             current_color_value = current_vals[idx][idy]
+            current_color_heading = color_headings[idx][idy]
             state = state_shot[idx][idy]
             #calculate cell histories average
             cell_history_mean = 0
             for item in states_histories[idx][idy]:
                 cell_history_mean += item
             cell_history_mean = cell_history_mean / 10
+            #set color heading and limit changing color value range
+            if current_color_value > 240:
+                color_headings[idx][idy] = 0
+            elif current_color_value < 20:
+                color_headings[idx][idy] = 1
+            else:
+                pass
             #change color value
             if state:
-                if current_color_value < 250:
+                if current_color_heading: 
                     next_vals[idx][idy] = current_color_value + cell_history_mean / 2
-            else: #cell is off
-                if current_color_value > 20:
+                else:
                     next_vals[idx][idy] = current_color_value - cell_history_mean / 2
+            else: #cell is off
+                next_vals[idx][idy] = current_color_value
+
+            
