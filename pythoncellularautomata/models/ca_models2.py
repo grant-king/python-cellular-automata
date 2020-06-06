@@ -245,15 +245,9 @@ class Capture:
         image_data = cv2.imread(image_path)
         resized = self.aspect_resize(image_data)
         edges = cv2.Canny(resized, 100, 250, L2gradient=True)
-
-        for column in range(self.grid.num_columns):
-            for row in range(self.grid.num_rows):
-                self.grid.cells[column][row].set_color(resized[row, column])
-                if edges[row, column]: #activate cells corresponding to edges mask
-                    self.grid.cells[column][row].toggle_cell(1)
-                else:
-                    self.grid.cells[column][row].toggle_cell(0)
-        self.grid.manual_update_states()
+        
+        self.grid.color_channels = resized
+        self.grid.current_states = np.array(edges, dtype=np.bool)
         self.grid.switch_channels()
 
     def save_image(self):
