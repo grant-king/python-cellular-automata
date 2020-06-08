@@ -10,36 +10,51 @@ class ShotTool:
         """Sequential methods for operating on state shots"""
         self.grid = grid
     
-    def age_colors(self, color_channels, current_states, states_histories):
+    def age_colors(self, color_channels, current_states, states_histories, color_headings):
         """get new colors by running each channel through age_channel_[...] ShotTool method"""
         new_channels = []
+        
         #reshape to (3, rows, columns)
-        for channel in np.moveaxis(color_channels, -1, 0):
-            new_channels.append(self.age_channel(channel, current_states, states_histories))
-        new_channels = np.array(new_channels)
-        return np.moveaxis(new_channels, 0, -1)
+        headings = np.moveaxis(color_headings, -1, 0)
+        for idx, channel in enumerate(np.moveaxis(color_channels, -1, 0)):
+            new_channels.append(self.age_channel(channel, current_states, states_histories, headings[idx]))
+        new_colors = np.array([item[0] for item in new_channels])
+        new_headings = np.array([item[1] for item in new_channels])
 
-    def age_channel(self, input_channel, states, states_histories):
+        return np.moveaxis(new_colors, 0, -1), np.moveaxis(new_headings, 0, -1)
+
+    def age_channel(self, input_channel, states, states_histories, channel_headings):
         """increment or decrement each element in input for similar 
         output based on states"""
         color_vals = input_channel.flatten()
-        output = np.empty_like(color_vals)
+        headings = channel_headings.flatten()
+        output = np.full_like(color_vals, 128)
         flatter_history = states_histories.reshape(-1, states_histories.shape[-1])
+
         for idx, state in enumerate(states.flatten()):
+            if color_vals[idx] > 250:
+                headings[idx] = 0
+            elif color_vals[idx] < 20:
+                headings[idx] = 1
+            else:
+                pass
+
             if state:
-                output[idx] = self.age_color(color_vals[idx], flatter_history[idx, :])
+                output[idx] = self.age_color(color_vals[idx], flatter_history[idx, :], headings[idx])
             else:
                 output[idx] = color_vals[idx]
-        return np.reshape(output, input_channel.shape)
+        return np.reshape(output, input_channel.shape), np.reshape(headings, channel_headings.shape)
 
-    def age_color(self, current_color_value, current_cell_history):
+    def age_color(self, current_color_value, current_cell_history, current_color_heading):
         """return new color value within limits"""
-        if current_cell_history[-1]: # if last state was alive, age towards white
-            if current_color_value < 250:
-                return current_color_value + (current_cell_history.mean() / 2) #add according to average of last n states
-        else:# otherwise decrease color components
-            if current_color_value > 20: 
-                return current_color_value - (current_cell_history.mean() / 2) #control darkening rate
+        #change color value
+        if current_cell_history[-1]: #if alive
+            if current_color_heading: 
+                return current_color_value + (current_cell_history.mean() / 2)
+            else:
+                return current_color_value - (current_cell_history.mean() / 2)
+        else: #cell is off
+            return current_color_value
 
     def calculate_next(self, state_shot):
         """calculate next state frame, one cell at a time"""
