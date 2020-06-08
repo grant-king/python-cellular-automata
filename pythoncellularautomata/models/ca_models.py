@@ -2,6 +2,7 @@ import pygame
 import random
 import os
 import numpy as np
+from numpy.random import default_rng
 import cv2
 import logging
 from time import time, ctime
@@ -26,15 +27,15 @@ class Grid:
         self.total_cells = self.num_rows * self.num_columns
         self.image_size = (self.num_columns * self.CELL_SIZE, self.num_rows * self.CELL_SIZE) #width, height
 
+        self.ruleset_changes = 0
         self.current_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
         self.next_states = np.zeros((self.num_rows, self.num_columns), dtype=np.bool)
-        self.color_channels = np.random.uniform(low=100, high=155, size=(self.num_rows, self.num_columns, 3))
+        self.color_channels = np.clip(default_rng().pareto(0.5, size=(self.num_rows, self.num_columns, 3)), 60, 250)
         self.cells_history = np.zeros((self.num_rows, self.num_columns, 10), dtype=np.bool)
         self.color_headings = np.ones((self.num_rows, self.num_columns, 3), dtype=np.bool) #is the color going forwards or backwards?
         self.rule_set = Ruleset(rule_name)
         self.set_pm_settings()
         
-
         print(f'Grid initialized with {self.rule_set.name} rule at {ctime()} with {self.total_cells} cells')
         print(f'Using processing mode {self.processing_mode}')
 
@@ -50,7 +51,7 @@ class Grid:
             self.grid_update_method = self.legacy_cells_object.update_grid
 
     def switch_channels(self):
-        """Switch red and blue color channels for proper coloring with update_grid_II 
+        """Switch red and blue color channels for proper coloring with update_grid 
         """
         intensity_channels = np.moveaxis(self.color_channels, -1, 0) #move axis for easy reordering
         reordered_intensity_channels = [intensity_channels[2], intensity_channels[1], intensity_channels[0]]
