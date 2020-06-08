@@ -1,5 +1,5 @@
 import pygame
-from pygame.locals import USEREVENT, KEYDOWN, QUIT, K_ESCAPE, K_l, K_i, K_r, K_s, K_t, K_UP, K_DOWN
+from pygame.locals import USEREVENT, KEYDOWN, QUIT, K_ESCAPE, K_l, K_i, K_r, K_s, K_t, K_UP, K_DOWN, K_a
 import os
 import math
 import cv2
@@ -17,11 +17,14 @@ class Control:
         self.perf_monitor = PerformanceMonitor(grid)
         self.STATESHOTEVENT = USEREVENT + 1
         self.PERFSTATSEVENT = USEREVENT + 2
+        self.RULECHANGEEVENT = USEREVENT + 3
         self.fps = 30
+        self.timer_rulesets = []
         #self.control_gui = ButtonWindow(self)
         self.CONTROLS = """l: load from state shot\ni: load from image
 r: change ruleset\ns: save image and state shot
 t: set a timer\nup/down arrow keys: control FPS
+a: alternate rulesets timer shortcut
 esc: end current simulation\n"""
         print(self.CONTROLS)
 
@@ -64,6 +67,8 @@ esc: end current simulation\n"""
                     self.save_image_handler()
                 if event.key == K_t:
                     self.set_timer_handler()
+                if event.key == K_a:
+                    self.set_ruleset_timer_handler()
                 if event.key == K_UP:
                     self.increase_fps_handler()
                 if event.key == K_DOWN:
@@ -72,16 +77,37 @@ esc: end current simulation\n"""
                 self.state_shot_handler()
             if event.type == self.PERFSTATSEVENT:
                 self.performance_event_handler()
+            if event.type == self.RULECHANGEEVENT:
+                self.rulechange_event_handler()
 
     def set_timer_handler(self):
-        stateshot = input('type 1 to set stateshot timer or 0 to set end timer: ')
-        if int(stateshot):
-            timer_ticks = input("Type the steps frequency in to take a stateshot: ")
+        timer_type = input("Type the type of timer you want to set: 'end', 'stateshot', or 'ruleset' : ")
+        if timer_type == 'stateshot':
+            timer_ticks = input("How often, in steps, would you like to capture a stateshot? ")
             self.step_clock.set_timer(self.STATESHOTEVENT, int(timer_ticks))
-        else:
+        elif timer_type == 'end':
             timer_ticks = input("In how many steps would you like to end the simulation? ")
-            self.step_clock.set_timer(QUIT, int(timer_ticks))
+            self.step_clock.set_timer(QUIT, int(timer_ticks), repeating=False)
             print(f"Simulation will end in {timer_ticks} ticks.")
+        elif timer_type == 'ruleset':
+            self.set_ruleset_timer_handler()
+        else:
+            print(f"{timer_type} is not a valid option. Press 't' to try again.")
+
+    def set_ruleset_timer_handler(self):
+            timer_ticks = input("How often, in steps, would you like to alternate between rules? ")
+            rule_list = input("List the rules you would like to alternate between, separate by spaces: ").split(' ')
+
+            for item in rule_list:
+                if item not in self.grid.rule_set.RULE_SETS.keys():
+                    rule_list.pop(item)
+                    print(f"Invalid '{item}' removed from ruleset rotation list.")
+                    
+            if len(rule_list) > 0:
+                self.step_clock.set_timer(self.RULECHANGEEVENT, int(timer_ticks))
+                self.timer_rulesets = rule_list
+            else:
+                print("No valid rulesets to set a timer to. Timer aborted.")
     
     def state_shot_handler(self):
         self.capture.state_shot()
@@ -124,6 +150,10 @@ esc: end current simulation\n"""
     def performance_event_handler(self):
         self.perf_monitor.update()
 
+    def rulechange_event_handler(self):
+        self.set_rules(self.timer_rulesets[-1])
+        self.timer_rulesets.append(self.timer_rulesets.pop(0)) #shift queue
+
     def increase_fps_handler(self):
         if self.fps < 100 and self.fps > 0:
             self.fps += math.ceil((self.fps + 10) / 10)
@@ -156,32 +186,39 @@ class StepClock:
     def __init__(self):
         self.timers = []
 
-    def set_timer(self, event_id, ticks):
-        new_timer = StepTimer(event_id, ticks)
+    def set_timer(self, event_id, ticks, repeating=True):
+        new_timer = StepTimer(event_id, ticks, repeating)
         self.timers.append(new_timer)
 
     def update(self):
         for idx, timer in enumerate(self.timers):
             timer.update()
-            if timer.ticks_remaining == -1:
-                self.timers.pop(idx)
 
 
 class StepTimer:
     #post event event_id every delay_ticks ticks
-    def __init__(self, event_id, ticks):
+    def __init__(self, event_id, ticks, repeating):
         self.event_id = event_id
         self.event = pygame.event.Event(event_id)
         self.timer_ticks = ticks
         self.ticks_remaining = ticks
+        self.repeating = repeating #bool
         
     def update(self):
-        if self.ticks_remaining > 0:
+        if self.ticks_remaining > 1:
             self.ticks_remaining -= 1
-        else:
+        elif self.ticks_remaining == 1:
             pygame.event.post(self.event)
-            self.ticks_remaining = -1
-        
+            self.reset()
+        else:
+            pass
+
+    def reset(self):
+        if self.repeating:
+            self.ticks_remaining = self.timer_ticks
+        else:
+            self.ticks_remaining = 0 #turn timer off
+                
 
 
 class Capture:
