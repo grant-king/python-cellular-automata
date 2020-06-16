@@ -198,11 +198,7 @@ def get_next_color_vals(current_vals, state_shot, states_histories, next_vals, c
             current_color_value = current_vals[idx][idy]
             current_color_heading = color_headings[idx][idy]
             state = state_shot[idx][idy]
-            #calculate cell histories average
-            cell_history_mean = 0
-            for item in states_histories[idx][idy]:
-                cell_history_mean += item
-            cell_history_mean = cell_history_mean / 10
+            
             #set color heading and limit changing color value range
             if current_color_value > 240:
                 color_headings[idx][idy] = 0
@@ -210,8 +206,14 @@ def get_next_color_vals(current_vals, state_shot, states_histories, next_vals, c
                 color_headings[idx][idy] = 1
             else:
                 pass
-            #change color value
+            #operate on cell if active
             if state:
+                #calculate cell histories average
+                cell_history_mean = 0
+                for item in states_histories[idx][idy]:
+                    cell_history_mean += item
+                cell_history_mean = cell_history_mean / 10
+                #change color value
                 if current_color_heading: 
                     next_vals[idx][idy] = current_color_value + cell_history_mean / 2
                 else:
