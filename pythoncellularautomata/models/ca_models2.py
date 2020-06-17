@@ -18,6 +18,7 @@ class Control:
         self.STATESHOTEVENT = USEREVENT + 1
         self.PERFSTATSEVENT = USEREVENT + 2
         self.RULECHANGEEVENT = USEREVENT + 3
+        self.ALLSHOTSEVENT = USEREVENT + 4
         self.fps = 30
         self.timer_rulesets = []
         #self.control_gui = ButtonWindow(self)
@@ -57,28 +58,34 @@ esc: end current simulation\n"""
             if event.type == KEYDOWN:
                 if event.key == K_l:
                     self.load_state_handler()
-                if event.key == K_i:
+                elif event.key == K_i:
                     self.load_image_handler()
-                if event.key == K_r:
+                elif event.key == K_r:
                     self.change_ruleset_handler()
-                if event.key == K_s:
+                elif event.key == K_s:
                     self.state_shot_handler()
                     self.screen_shot_handler()
                     self.save_image_handler()
-                if event.key == K_t:
+                elif event.key == K_t:
                     self.set_timer_handler()
-                if event.key == K_a:
+                elif event.key == K_a:
                     self.set_ruleset_timer_handler()
-                if event.key == K_UP:
+                elif event.key == K_UP:
                     self.increase_fps_handler()
-                if event.key == K_DOWN:
+                elif event.key == K_DOWN:
                     self.decrease_fps_handler()
-            if event.type == self.STATESHOTEVENT:
+                else:
+                    pass
+            elif event.type == self.STATESHOTEVENT:
                 self.state_shot_handler()
-            if event.type == self.PERFSTATSEVENT:
+            elif event.type == self.PERFSTATSEVENT:
                 self.performance_event_handler()
-            if event.type == self.RULECHANGEEVENT:
+            elif event.type == self.RULECHANGEEVENT:
                 self.rulechange_event_handler()
+            elif event.type == self.ALLSHOTSEVENT:
+                self.all_shots_handler()
+            else:
+                pass
 
     def set_timer_handler(self):
         timer_type = input("Type the type of timer you want to set: 'end', 'stateshot', or 'ruleset' : ")
@@ -117,6 +124,9 @@ esc: end current simulation\n"""
 
     def screen_shot_handler(self):
         self.capture.screen_shot()
+
+    def all_shots_handler(self):
+        print('all shots handler called')
 
     def load_state_handler(self):
         print("------------- Load From Binary State Image -------------")
@@ -219,7 +229,6 @@ class StepTimer:
         else:
             self.ticks_remaining = 0 #turn timer off
                 
-
 
 class Capture:
     def __init__(self, grid):
