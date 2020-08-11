@@ -17,7 +17,7 @@ class Control:
         self.perf_monitor = PerformanceMonitor(grid)
         self.STATESHOTEVENT = USEREVENT + 1
         self.PERFSTATSEVENT = USEREVENT + 2
-        self.RULECHANGEEVENT = USEREVENT + 3
+        self.RULECYCLEEVENT = USEREVENT + 3
         self.ALLSHOTSEVENT = USEREVENT + 4
         self.fps = 30
         self.timer_rulesets = []
@@ -69,7 +69,7 @@ esc: end current simulation\n"""
                 elif event.key == K_t:
                     self.set_timer_handler()
                 elif event.key == K_a:
-                    self.set_ruleset_timer_handler()
+                    self.set_ruleset_cycle_timer_handler()
                 elif event.key == K_UP:
                     self.increase_fps_handler()
                 elif event.key == K_DOWN:
@@ -80,38 +80,38 @@ esc: end current simulation\n"""
                 self.state_shot_handler()
             elif event.type == self.PERFSTATSEVENT:
                 self.performance_event_handler()
-            elif event.type == self.RULECHANGEEVENT:
-                self.rulechange_event_handler()
+            elif event.type == self.RULECYCLEEVENT:
+                self.rulecycle_event_handler()
             elif event.type == self.ALLSHOTSEVENT:
                 self.all_shots_handler()
             else:
                 pass
 
     def set_timer_handler(self):
-        timer_type = input("Type the type of timer you want to set: 'end', 'stateshot', or 'ruleset' : ")
-        if timer_type == 'stateshot':
-            timer_ticks = input("How often, in steps, would you like to capture a stateshot? ")
-            self.step_clock.set_timer(self.STATESHOTEVENT, int(timer_ticks))
+        timer_type = input("Type the type of timer you want to set: 'end', 'allshots', or 'ruleset' : ")
+        if timer_type == 'allshots':
+            timer_ticks = input("How often, in steps, would you like to capture all shot types? ")
+            self.step_clock.set_timer(self.ALLSHOTSEVENT, int(timer_ticks))
         elif timer_type == 'end':
             timer_ticks = input("In how many steps would you like to end the simulation? ")
             self.step_clock.set_timer(QUIT, int(timer_ticks), repeating=False)
             print(f"Simulation will end in {timer_ticks} ticks.")
-        elif timer_type == 'ruleset':
-            self.set_ruleset_timer_handler()
+        elif timer_type == 'rulesetcycle':
+            self.set_ruleset_cycle_timer_handler()
         else:
             print(f"{timer_type} is not a valid option. Press 't' to try again.")
 
-    def set_ruleset_timer_handler(self):
+    def set_ruleset_cycle_timer_handler(self):
             timer_ticks = input("How often, in steps, would you like to alternate between rules? ")
             rule_list = input("List the rules you would like to alternate between, separate by spaces: ").split(' ')
 
             for item in rule_list:
-                if item not in self.grid.rule_set.RULE_SETS.keys():
+                if item not in self.grid.rule_set.RULE_SETS.keys(): #validate input
                     rule_list.pop(item)
                     print(f"Invalid '{item}' removed from ruleset rotation list.")
                     
             if len(rule_list) > 0:
-                self.step_clock.set_timer(self.RULECHANGEEVENT, int(timer_ticks))
+                self.step_clock.set_timer(self.RULECYCLEEVENT, int(timer_ticks))
                 self.timer_rulesets = rule_list
             else:
                 print("No valid rulesets to set a timer to. Timer aborted.")
@@ -127,6 +127,9 @@ esc: end current simulation\n"""
 
     def all_shots_handler(self):
         print('all shots handler called')
+        self.capture.state_shot()
+        self.capture.save_image()
+        self.capture.screen_shot()
 
     def load_state_handler(self):
         print("------------- Load From Binary State Image -------------")
@@ -160,7 +163,7 @@ esc: end current simulation\n"""
     def performance_event_handler(self):
         self.perf_monitor.update()
 
-    def rulechange_event_handler(self):
+    def rulecycle_event_handler(self):
         self.set_rules(self.timer_rulesets[-1])
         self.timer_rulesets.append(self.timer_rulesets.pop(0)) #shift queue
 
@@ -248,13 +251,14 @@ class Capture:
         return self.grid.rule_set.run_ticks
 
     def screen_shot(self):
+        """take a shot of the pygame main window as it appears"""
         if not os.path.exists(f'./{self.screenshot_dir}/'):
             os.mkdir(f'./{self.screenshot_dir}/')
         filename = f'{self.main_dir}/{self.screenshot_dir}/shot_{self.grid.ruleset_changes}-{self.grid.rule_set.name}_{self.step_counter}.png'
         pygame.image.save(self.main_window, filename)
 
     def state_shot(self):
-        #capture cell active states as b&w png
+        """capture cell active states as b&w png"""
         if not os.path.exists(f'./{self.screenshot_dir}/'):
             os.mkdir(f'./{self.screenshot_dir}/')
         os.chdir(f'./{self.screenshot_dir}/')
@@ -264,7 +268,7 @@ class Capture:
         os.chdir('../')
 
     def load_state_shot(self, map_path):
-        #load from existing state map
+        """load from existing state map"""
         state_map = cv2.imread(map_path)
     
         for column in range(self.grid.num_columns):
@@ -274,7 +278,7 @@ class Capture:
         self.grid.manual_update_states()
             
     def aspect_resize(self, image_data):
-        #preserve aspect on resize
+        """preserve aspect on resize"""
         og_size = image_data.shape[:2] #height, width
         max_size = self.grid.SCREEN_SIZE #width, height
         resize_ratio = min(max_size[1] / og_size[0], max_size[0] / og_size[1])
@@ -314,3 +318,6 @@ class Capture:
         equalized = exposure.equalize_adapthist(np.array(bgr_img, dtype=np.uint8)) * 255
         cv2.imwrite(filename, equalized)
         
+    def save_step_data(self):
+        """save state shot and color image as arrays to lmdb"""
+        pass
