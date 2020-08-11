@@ -1,2 +1,7 @@
 
 *.pyc
+.vscode/*
+pythoncellularautomata/.ipynb_checkpoints/*
+*.json
+*.txt
+pythoncellularautomata/debug.ipynb

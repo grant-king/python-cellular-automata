@@ -1,23 +1,23 @@
 # python-cellular-automata
-A small library for configuring, viewing, and recording cellular automata simulations with Python.
+A project for configuring, viewing, and recording cellular automata simulations with Python.
 
 ## About PCA
-This project is made to provide Python programmers with a way to visualize and record 2D cellular automata.
+This is a work in progress. The goal is to provide Python programmers with a way to visualize and record 2D cellular automata.
 
 This project relies most on Pygame to visualize and handle user control. It also uses NumPy for array operations, Numba for GPU processing, and opencv-python to capture and process image data. It is capable of running very slowly on just a CPU, but is meant to be run on CUDA-enabled GPUs.
 
-## Installation
-To use this library you will first have to install the prerequisite packages:
+## Installation with conda or pip
+This pythoncellularautomata module is not yet on pypi. To use this you will have to download the code locally after you create a new environment and install the prerequisite packages:
 
 --> Pygame: >pip install pygame
 
---> OpenCV-Python: >conda install opencv
+--> OpenCV-Python: >conda/pip install opencv-python
 
 --> NumPy 
 
---> Numba: >conda install numba ; >conda install cudatoolkit
+--> Numba: >conda/pip install numba ; >conda install cudatoolkit or manually download for pip version at [this site](https://developer.nvidia.com/cuda-downloads).
 
---> Scikit-Image: >conda install scikit-image
+--> Scikit-Image: >conda/pip install scikit-image
 
 Clone this repository with git and use the command prompt to navigate to the folder containing hello_ca.py
 
