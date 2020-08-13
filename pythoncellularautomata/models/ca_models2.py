@@ -6,6 +6,7 @@ import cv2
 from skimage import exposure
 from models.performance_monitor import PerformanceMonitor
 from models.ruleset_models import Ruleset
+from models.configuration_models import SystemConfigurationHelper
 #from models.controls_ui import ButtonWindow
 import numpy as np
 
@@ -133,23 +134,23 @@ esc: end current simulation\n"""
 
     def load_state_handler(self):
         print("------------- Load From Binary State Image -------------")
-        self.map_file_dir = input('type the directory name to load, within D:/chaos/: ')
-        self.map_file_name = input(f'type the file name to load, within within D:/chaos/{self.map_file_dir}/: ')
+        self.map_file_dir = input(f'type the directory name to load, within {self.capture.main_dir}: ')
+        self.map_file_name = input(f'type the file name to load, within {os.path.join(self.capture.main_dir, self.map_file_dir)}: ')
 
-        if os.path.exists(f'D:/chaos/{self.map_file_dir}/{self.map_file_name}'):
-            self.capture.load_state_shot(f'D:/chaos/{self.map_file_dir}/{self.map_file_name}')
+        if os.path.exists(os.path.join(self.capture.main_dir, self.map_file_dir, self.map_file_name)):
+            self.capture.load_state_shot(os.path.join(self.capture.main_dir, self.map_file_dir, self.map_file_name))
         else:
-            print(f"D:/chaos/{self.map_file_dir}/{self.map_file_name} does not exist. Press 'l' to try again")
+            print(f"{os.path.join(self.capture.main_dir, self.map_file_dir, self.map_file_name)} does not exist. Press 'l' to try again")
 
     def load_image_handler(self):
         print("------------- Load From Color Image -------------")
         self.image_file_dir = input('type the directory name to load: ')
-        self.image_file_name = input(f'type the file name to load, within within {self.image_file_dir}/: ')
+        self.image_file_name = input(f'type the file name to load, within {self.image_file_dir}: ')
 
-        if os.path.exists(f'{self.image_file_dir}/{self.image_file_name}'):
-            self.capture.load_image(f'{self.image_file_dir}/{self.image_file_name}')
+        if os.path.exists(os.path.join(self.image_file_dir, self.image_file_name)):
+            self.capture.load_image(os.path.join(self.image_file_dir, self.image_file_name))
         else:
-            print(f"{self.image_file_dir}/{self.image_file_name} does not exist. Press 'i' to try again")
+            print(f"{os.path.join(self.image_file_dir, self.image_file_name)} does not exist. Press 'i' to try again")
 
     def change_ruleset_handler(self):
         new_ruleset = input("type new ruleset name: ")
@@ -238,7 +239,8 @@ class Capture:
         self.main_window = pygame.display.get_surface()
         self.rule_name = grid.rule_set.name
         self.grid = grid
-        self.main_dir = 'D:/chaos'
+        self.sys_config_helper = SystemConfigurationHelper()
+        self.main_dir = self.sys_config_helper.save_directory
         extension_id = len(os.listdir(self.main_dir)) + 1
         self.screenshot_dir = f'{grid.rule_set.name}_{grid.num_columns}x{grid.num_rows}_{extension_id}'
 
@@ -256,6 +258,15 @@ class Capture:
             os.mkdir(f'./{self.screenshot_dir}/')
         filename = f'{self.main_dir}/{self.screenshot_dir}/shot_{self.grid.ruleset_changes}-{self.grid.rule_set.name}_{self.step_counter}.png'
         pygame.image.save(self.main_window, filename)
+
+    def save_image(self):
+        """Save all current cell colors, regardless of state, as equilized color image"""
+        if not os.path.exists(f'./{self.screenshot_dir}/'):
+            os.mkdir(f'./{self.screenshot_dir}/')
+        filename = f'{self.main_dir}/{self.screenshot_dir}/image_{self.grid.ruleset_changes}-{self.grid.rule_set.name}_{self.step_counter}.png'
+        bgr_img = cv2.cvtColor(self.grid.color_channels, cv2.COLOR_RGB2BGR)
+        equalized = exposure.equalize_adapthist(np.array(bgr_img, dtype=np.uint8)) * 255
+        cv2.imwrite(filename, equalized)
 
     def state_shot(self):
         """capture cell active states as b&w png"""
@@ -308,15 +319,6 @@ class Capture:
         self.grid.color_channels = resized
         self.grid.current_states = np.array(edges, dtype=np.bool)
         self.grid.switch_channels()
-
-    def save_image(self):
-        """Save all current cell colors, regardless of state, as equilized color image"""
-        if not os.path.exists(f'./{self.screenshot_dir}/'):
-            os.mkdir(f'./{self.screenshot_dir}/')
-        filename = f'{self.main_dir}/{self.screenshot_dir}/image_{self.grid.ruleset_changes}-{self.grid.rule_set.name}_{self.step_counter}.png'
-        bgr_img = cv2.cvtColor(self.grid.color_channels, cv2.COLOR_RGB2BGR)
-        equalized = exposure.equalize_adapthist(np.array(bgr_img, dtype=np.uint8)) * 255
-        cv2.imwrite(filename, equalized)
         
     def save_step_data(self):
         """save state shot and color image as arrays to lmdb"""
