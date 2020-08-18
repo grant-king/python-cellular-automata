@@ -2,7 +2,7 @@
 import configparser
 import os
 
-class SystemConfigurationHelper:
+class SystemConfigurationManager:
     def __init__(self):
         if os.path.isfile('system_setup.conf'):
             self.load_settings()
@@ -31,3 +31,4 @@ class SystemConfigurationHelper:
             print(f'{input_directory} is not a valid directory.')
             self.get_settings()
 
+        
