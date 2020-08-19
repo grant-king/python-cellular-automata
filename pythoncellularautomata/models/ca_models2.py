@@ -6,7 +6,7 @@ import cv2
 from skimage import exposure
 from models.performance_monitor import PerformanceMonitor
 from models.ruleset_models import Ruleset
-from models.configuration_models import SystemConfigurationHelper
+from models.system_configuration_models import SystemConfigurationManager
 #from models.controls_ui import ButtonWindow
 import numpy as np
 
@@ -239,8 +239,8 @@ class Capture:
         self.main_window = pygame.display.get_surface()
         self.rule_name = grid.rule_set.name
         self.grid = grid
-        self.sys_config_helper = SystemConfigurationHelper()
-        self.main_dir = self.sys_config_helper.save_directory
+        self.sys_config_manager = SystemConfigurationManager()
+        self.main_dir = self.sys_config_manager.save_directory
         extension_id = len(os.listdir(self.main_dir)) + 1
         self.screenshot_dir = f'{grid.rule_set.name}_{grid.num_columns}x{grid.num_rows}_{extension_id}'
 
