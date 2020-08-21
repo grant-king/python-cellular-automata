@@ -6,11 +6,11 @@ from numpy.random import default_rng
 import cv2
 import logging
 from time import time, ctime
-from models.performance_monitor import PerformanceMonitor
-from models.ca_models2 import Control, StepClock, StepTimer, Capture
-from models.functional_models import ShotTool, ShotToolCUDA
-from models.ruleset_models import Ruleset
-from models.legacy_models import CellContainer
+from .performance_monitor import PerformanceMonitor
+from .ca_models2 import Control, StepClock, StepTimer, Capture
+from .functional_models import ShotTool, ShotToolCUDA
+from .ruleset_models import Ruleset
+from .legacy_models import CellContainer
 
 class Grid:
     def __init__(self, cell_size, rule_name, aging=False, processing_mode=2, show_colors=False, show_inverse=False):
