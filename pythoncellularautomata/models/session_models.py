@@ -1,18 +1,19 @@
 import configparser
 import os
-from models.ca_models import Grid, Capture, Control
+from .ca_models import Grid, Capture, Control
 import pygame
 from pygame.locals import QUIT
 
 class SessionConfigurationManager:
     def __init__(self):
+        self.base_dir = os.getcwd()        
         self.input_dict = {}
         self.config_dict = {}
 
     def input_config_name(self):
         load_name = input('Type the session config name you want to load: ')
-        if os.path.isfile(f'{load_name}.conf'):
-            self.current_session = self.start_config(f'{load_name}.conf')
+        if os.path.isfile(os.path.join(self.base_dir, f'{load_name}.conf')):
+            self.current_session = self.start_config(os.path.join(self.base_dir, f'{load_name}.conf'))
 
     def start_config(self, config_filename):
         """start session from config name and return session object"""        
@@ -69,7 +70,7 @@ class SessionConfigurationManager:
         self.input_dict['cell_size'] = input("how many pixels square do you want the cells to be? ")
         self.input_dict['initial_ruleset'] = input("What ruleset do you want to start with? ")
         self.input_dict['aging'] = input('Do you want cell aging on? 1 or 0: ')
-        self.input_dict['processing_mode'] = input('Do you have a CUDA-enabled GPU? 1 or 0: ')
+        self.input_dict['processing_mode'] = input('Select processing mode 1 (CPU) or 2 (CUDA): ')
         self.input_dict['show_colors'] = input("Do you want to show colors? 1 or 0: ")
         self.input_dict['seed_image_path'] = input("Type the full path for the seed image: ")
 
@@ -88,14 +89,17 @@ class SessionConfigurationManager:
 
 class SessionConfiguration:
     def __init__(self, screen_size, cell_size, ruleset_name, 
-    aging=1, processing_mode=2,  show_colors=1, seed_image_path=None):
+    aging=1, processing_mode=2,  show_colors=1, seed_image_path=''):
         self.screen_size = screen_size
         self.cell_size = cell_size
         self.ruleset_name = ruleset_name
         self.aging = aging
         self.processing_mode = processing_mode
         self.show_colors = show_colors
-        self.seed_image_path = seed_image_path
+        if seed_image_path == '':
+            self.seed_image_path = None
+        else:
+            self.seed_image_path = seed_image_path
 
 
 class CellularAutomatonSession:
@@ -113,7 +117,7 @@ class CellularAutomatonSession:
         self.control = Control(self.grid)
 
         if session_config.seed_image_path is None:
-            self.grid.random_seed(0.05)
+            self.grid.random_seed(0.5)
         else:
             self.control.capture.load_image(session_config.seed_image_path)
 
