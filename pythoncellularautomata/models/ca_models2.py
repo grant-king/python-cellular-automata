@@ -4,9 +4,9 @@ import os
 import math
 import cv2
 from skimage import exposure
-from models.performance_monitor import PerformanceMonitor
-from models.ruleset_models import Ruleset
-from models.system_configuration_models import SystemConfigurationManager
+from .performance_monitor import PerformanceMonitor
+from .ruleset_models import Ruleset
+from .system_configuration_models import SystemConfigurationManager
 #from models.controls_ui import ButtonWindow
 import numpy as np
 
@@ -246,37 +246,33 @@ class Capture:
 
         self.shot_counter = 1
 
-        os.chdir(self.main_dir)
-
     @property
     def step_counter(self):
         return self.grid.rule_set.run_ticks
 
     def screen_shot(self):
         """take a shot of the pygame main window as it appears"""
-        if not os.path.exists(f'./{self.screenshot_dir}/'):
-            os.mkdir(f'./{self.screenshot_dir}/')
-        filename = f'{self.main_dir}/{self.screenshot_dir}/shot_{self.grid.ruleset_changes}-{self.grid.rule_set.name}_{self.step_counter}.png'
+        if not os.path.exists(os.path.join(self.main_dir, self.screenshot_dir)):
+            os.mkdir(os.path.join(self.main_dir, self.screenshot_dir))
+        filename = os.path.join(self.main_dir, self.screenshot_dir, f'shot_{self.grid.ruleset_changes}-{self.grid.rule_set.name}_{self.step_counter}.png')
         pygame.image.save(self.main_window, filename)
 
     def save_image(self):
         """Save all current cell colors, regardless of state, as equilized color image"""
-        if not os.path.exists(f'./{self.screenshot_dir}/'):
-            os.mkdir(f'./{self.screenshot_dir}/')
-        filename = f'{self.main_dir}/{self.screenshot_dir}/image_{self.grid.ruleset_changes}-{self.grid.rule_set.name}_{self.step_counter}.png'
+        if not os.path.exists(os.path.join(self.main_dir, self.screenshot_dir)):
+            os.mkdir(os.path.join(self.main_dir, self.screenshot_dir))
+        filename = os.path.join(self.main_dir, self.screenshot_dir, f'image_{self.grid.ruleset_changes}-{self.grid.rule_set.name}_{self.step_counter}.png')
         bgr_img = cv2.cvtColor(self.grid.color_channels, cv2.COLOR_RGB2BGR)
         equalized = exposure.equalize_adapthist(np.array(bgr_img, dtype=np.uint8)) * 255
         cv2.imwrite(filename, equalized)
 
     def state_shot(self):
         """capture cell active states as b&w png"""
-        if not os.path.exists(f'./{self.screenshot_dir}/'):
-            os.mkdir(f'./{self.screenshot_dir}/')
-        os.chdir(f'./{self.screenshot_dir}/')
-        filename = f'step_{self.grid.ruleset_changes}-{self.grid.rule_set.name}_{self.step_counter}.png'
+        if not os.path.exists(os.path.join(self.main_dir, self.screenshot_dir)):
+            os.mkdir(os.path.join(self.main_dir, self.screenshot_dir))
+        filename = os.path.join(self.main_dir, self.screenshot_dir, f'step_{self.grid.ruleset_changes}-{self.grid.rule_set.name}_{self.step_counter}.png')
         states = np.array(self.grid.current_states, dtype=np.int8) * 255
         cv2.imwrite(filename, states)
-        os.chdir('../')
 
     def load_state_shot(self, map_path):
         """load from existing state map"""
