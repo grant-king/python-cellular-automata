@@ -9,14 +9,14 @@ The goal is to provide Python programmers with a way to run colorful 2D cellular
 This project relies most on Pygame to visualize and handle user control. It also uses NumPy for array operations, Numba for GPU processing, and opencv-python to capture and process image data.
 
 ## Installation with pip
-This pythoncellularautomata module is not yet on pypi. You can still install it with pip in debug mode after downloading this source. Create a new Python environment, activate the environment from your command prompt, and navigate to the root directory where you cloned this repository. 
+This pythoncellularautomata module is not yet on PyPI. You can still install it with pip in development mode after downloading this source. Create a new Python environment, activate the environment from your command prompt, and navigate to the root directory where you cloned this repository. 
 
 Install the PCA package into your environment from the python-cellular-automata project root directory with:
 ```shell
 pip install -e .
 ```
 
-Before use, you must also install cudatoolkit onto your system. I recommend installing it manually from [this site](https://developer.nvidia.com/cuda-downloads).
+Before use, you also need cudatoolkit installed on your system. I recommend installing it manually from [this site](https://developer.nvidia.com/cuda-downloads).
 
 You can now use the PCA CLI by running this in your command prompt, from within the pythoncellularautomata source code subdirectory:
 ```shell
@@ -29,7 +29,7 @@ import pythoncellularautomata.models.session_models as pca
 ```
 
 ## The API
-The API has one high-level class with three main methods. These methods and their use is demonstrated in `main.py`. The most basic use of the primary method would be:
+The API has one high-level class with three main methods. These methods and their use is demonstrated in [main.py](https://github.com/grant-king/python-cellular-automata/blob/master/pythoncellularautomata/main.py). The most basic use of the primary method would be:
 ```python
 import pythoncellularautomata.models.session_models as pca
 
@@ -41,5 +41,4 @@ def start_default_automaton():
 start_default_automaton()
 
 ```
-
 
