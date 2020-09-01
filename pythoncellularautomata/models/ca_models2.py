@@ -22,7 +22,6 @@ class Control:
         self.ALLSHOTSEVENT = USEREVENT + 4
         self.fps = 30
         self.timer_rulesets = []
-        #self.control_gui = ButtonWindow(self)
         self.CONTROLS = """l: load from state shot\ni: load from image
 r: change ruleset\ns: save image and state shot
 t: set a timer\nup/down arrow keys: control FPS
@@ -88,6 +87,21 @@ esc: end current simulation\n"""
             else:
                 pass
 
+    def set_allshots_timer(self, interval):
+        self.step_clock.set_timer(self.ALLSHOTSEVENT, interval)
+
+    def set_ruleset_cycle_timer(self, interval, rule_list):
+        for item in rule_list:
+            if item not in self.grid.rule_set.RULE_SETS.keys(): #validate input
+                rule_list.pop(item)
+                print(f"Invalid '{item}' removed from ruleset rotation list.")
+                
+        if len(rule_list) > 0:
+            self.step_clock.set_timer(self.RULECYCLEEVENT, int(interval))
+            self.timer_rulesets = rule_list
+        else:
+            print("No valid rulesets to set a timer to. Timer aborted.")
+
     def set_timer_handler(self):
         timer_type = input("Type the type of timer you want to set: 'end', 'allshots', or 'ruleset' : ")
         if timer_type == 'allshots':
@@ -106,16 +120,8 @@ esc: end current simulation\n"""
             timer_ticks = input("How often, in steps, would you like to alternate between rules? ")
             rule_list = input("List the rules you would like to alternate between, separate by spaces: ").split(' ')
 
-            for item in rule_list:
-                if item not in self.grid.rule_set.RULE_SETS.keys(): #validate input
-                    rule_list.pop(item)
-                    print(f"Invalid '{item}' removed from ruleset rotation list.")
-                    
-            if len(rule_list) > 0:
-                self.step_clock.set_timer(self.RULECYCLEEVENT, int(timer_ticks))
-                self.timer_rulesets = rule_list
-            else:
-                print("No valid rulesets to set a timer to. Timer aborted.")
+            self.set_ruleset_cycle_timer(timer_ticks, rule_list)
+
     
     def state_shot_handler(self):
         self.capture.state_shot()
