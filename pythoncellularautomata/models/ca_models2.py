@@ -54,36 +54,36 @@ esc: end current simulation\n"""
 
     def listen(self):
         #listen for button presses and refer to handlers
+        key_monitor = {
+            K_l: [self.load_state_handler],
+            K_i: [self.load_image_handler],
+            K_r: [self.change_ruleset_handler],
+            K_s: [
+                self.state_shot_handler, 
+                self.screen_shot_handler, 
+                self.save_image_handler
+                ],
+            K_t: [self.set_timer_handler],
+            K_a: [self.set_ruleset_cycle_timer_handler],
+            K_UP: [self.increase_fps_handler],
+            K_DOWN: [self.decrease_fps_handler]
+        }
+        event_monitor = {
+            self.STATESHOTEVENT: self.state_shot_handler,
+            self.PERFSTATSEVENT: self.performance_event_handler,
+            self.RULECYCLEEVENT: self.rulecycle_event_handler,
+            self.ALLSHOTSEVENT: self.all_shots_handler,
+        }
+        
         for event in self.events:
             if event.type == KEYDOWN:
-                if event.key == K_l:
-                    self.load_state_handler()
-                elif event.key == K_i:
-                    self.load_image_handler()
-                elif event.key == K_r:
-                    self.change_ruleset_handler()
-                elif event.key == K_s:
-                    self.state_shot_handler()
-                    self.screen_shot_handler()
-                    self.save_image_handler()
-                elif event.key == K_t:
-                    self.set_timer_handler()
-                elif event.key == K_a:
-                    self.set_ruleset_cycle_timer_handler()
-                elif event.key == K_UP:
-                    self.increase_fps_handler()
-                elif event.key == K_DOWN:
-                    self.decrease_fps_handler()
+                if event.key in key_monitor.keys():
+                    for key_handler in key_monitor[event.key]:
+                        key_handler()
                 else:
                     pass
-            elif event.type == self.STATESHOTEVENT:
-                self.state_shot_handler()
-            elif event.type == self.PERFSTATSEVENT:
-                self.performance_event_handler()
-            elif event.type == self.RULECYCLEEVENT:
-                self.rulecycle_event_handler()
-            elif event.type == self.ALLSHOTSEVENT:
-                self.all_shots_handler()
+            elif event.type in event_monitor.keys():
+                event_monitor[event.type]()
             else:
                 pass
 
@@ -121,7 +121,6 @@ esc: end current simulation\n"""
             rule_list = input("List the rules you would like to alternate between, separate by spaces: ").split(' ')
 
             self.set_ruleset_cycle_timer(timer_ticks, rule_list)
-
     
     def state_shot_handler(self):
         self.capture.state_shot()
