@@ -13,9 +13,9 @@ class SessionConfigurationManager:
     def input_config_name(self):
         load_name = input('Type the session config name you want to load: ')
         if os.path.isfile(os.path.join(self.base_dir, f'{load_name}.conf')):
-            self.current_session = self.start_config(os.path.join(self.base_dir, f'{load_name}.conf'))
+            self.current_session = self.start_config_file(os.path.join(self.base_dir, f'{load_name}.conf'))
 
-    def start_config(self, config_filename):
+    def start_config_file(self, config_filename):
         """start session from config name and return session object"""        
         self.load_config_settings(config_filename)
         session = CellularAutomatonSession(self.get_session_config())
@@ -45,10 +45,10 @@ class SessionConfigurationManager:
         """Start default simulation from configuration file"""
         #if default sim doesn't exist, create new one
         if os.path.isfile('default_simulation_settings.conf'):
-            self.current_session = self.start_config('default_simulation_settings.conf')
+            self.current_session = self.start_config_file('default_simulation_settings.conf')
         else:
             self.make_base()
-            self.current_session = self.start_config('default_simulation_settings.conf')
+            self.current_session = self.start_config_file('default_simulation_settings.conf')
 
     def make_new(self, new_name=None):
         """interactively create new named automaton config"""
@@ -87,9 +87,16 @@ class SessionConfigurationManager:
         self.make_new('default_simulation_settings')
 
 
+class CycleTimerConfiguration:
+    def __init__(self, interval, rule_list):
+        self.interval = interval
+        self.rule_list = rule_list
+
+
 class SessionConfiguration:
     def __init__(self, screen_size, cell_size, ruleset_name, 
-    aging=1, processing_mode=2,  show_colors=1, seed_image_path=''):
+    aging=1, processing_mode=2,  show_colors=1, seed_image_path='', 
+    allshots_interval=False, cycletimer_config=False):
         self.screen_size = screen_size
         self.cell_size = cell_size
         self.ruleset_name = ruleset_name
@@ -100,7 +107,8 @@ class SessionConfiguration:
             self.seed_image_path = None
         else:
             self.seed_image_path = seed_image_path
-
+        self.allshots_interval = allshots_interval
+        self.cycletimer_config = cycletimer_config
 
 class CellularAutomatonSession:
     def __init__(self, session_config):
@@ -115,8 +123,9 @@ class CellularAutomatonSession:
             show_colors=session_config.show_colors
             )
         self.control = Control(self.grid)
+        self.session_config = session_config
 
-        if session_config.seed_image_path is None:
+        if self.session_config.seed_image_path is None:
             self.grid.random_seed(0.5)
         else:
             self.control.capture.load_image(session_config.seed_image_path)
@@ -124,8 +133,19 @@ class CellularAutomatonSession:
         self.run_sim()
         
     def run_sim(self):
+        if self.session_config.allshots_interval:
+            self.control.set_allshots_timer(self.session_config.allshots_interval)
+
+        if self.session_config.cycletimer_config:
+            self.control.set_ruleset_cycle_timer(
+                self.session_config.cycletimer_config.interval,
+                self.session_config.cycletimer_config.rule_list
+                )
+        
         while self.control.running:
             self.clock.tick(self.control.fps)
             self.grid.update()
 
         pygame.quit()
+
+
