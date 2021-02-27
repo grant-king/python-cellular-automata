@@ -103,7 +103,7 @@ esc: end current simulation\n"""
             print("No valid rulesets to set a timer to. Timer aborted.")
 
     def set_timer_handler(self):
-        timer_type = input("Type the type of timer you want to set: 'end', 'allshots', or 'ruleset' : ")
+        timer_type = input("Type the type of timer you want to set: 'end', 'allshots', or 'rulesetcycle' : ")
         if timer_type == 'allshots':
             timer_ticks = input("How often, in steps, would you like to capture all shot types? ")
             self.step_clock.set_timer(self.ALLSHOTSEVENT, int(timer_ticks))
