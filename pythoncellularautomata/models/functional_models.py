@@ -1,5 +1,5 @@
 import numpy as np
-from models.ruleset_models import Ruleset
+from .ruleset_models import Ruleset
 from numba import cuda, types
 import math, time
 import os
