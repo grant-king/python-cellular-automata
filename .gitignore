@@ -5,5 +5,4 @@ pythoncellularautomata/.ipynb_checkpoints/*
 *.json
 *.txt
 pythoncellularautomata/debug.ipynb
-pythoncellularautomata/default_simulation_settings.conf
-pythoncellularautomata/system_setup.conf
+pythoncellularautomata/*.conf
