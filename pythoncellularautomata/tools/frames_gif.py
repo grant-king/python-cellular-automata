@@ -4,15 +4,28 @@ import os
 import sys
 import re
 
-def make_gif(frames_dir):
+def make_gif(frames_dir, active_animation=False):
+    """generate a gif using the appropriate .pngs within the specified 
+    directory. 
+    
+    active_animation flag to True will produce the animation 
+    using the "shot" frames (these frames only show pixels of the image 
+    that were corresponding to the current active cells of the 
+    simulation). Otherwise "image" frames are used (which show all pixels 
+    of the underlying image that the simulation was acting on)."""
     image_path = Path(frames_dir)
-    images = list(image_path.glob('image*.png'))
+    if active_animation:
+        images = list(image_path.glob('shot*.png'))
+        animation_file = 'active_animation.gif'
+    else:    
+        images = list(image_path.glob('image*.png'))
+        animation_file = 'animation.gif'
     images.sort(key=get_filename_key)
     image_list = []
     for file_name in images:
         image_list.append(imageio.imread(file_name))
     
-    imageio.mimwrite(image_path.joinpath('animation.gif'), image_list)
+    imageio.mimwrite(image_path.joinpath(animation_file), image_list)
 
 def get_filename_key(filename):
     numbers = re.compile(r'(\d+)')
@@ -22,4 +35,9 @@ def get_filename_key(filename):
 
 if __name__ == "__main__":
     directory = sys.argv[1]
-    make_gif(directory)
+    try:
+        active = sys.argv[2]
+        make_gif(directory, active_animation=active)
+    except:
+        make_gif(directory)
+    
